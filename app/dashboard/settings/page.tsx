@@ -22,6 +22,8 @@ import {
   Mail,
   CheckCircle,
 } from 'lucide-react';
+import { Spinner } from '../../components/Spinner';
+import { Skeleton } from '../../components/Skeleton';
 
 interface UserProfile {
   uid: string;
@@ -126,7 +128,7 @@ export default function SettingsPage() {
       loadUserProfile();
     } catch (error) {
       console.error('Failed to update profile:', error);
-      toast.error('Failed to update profile');
+      toast.error('Something went wrong. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -157,7 +159,7 @@ export default function SettingsPage() {
       setConfirmPassword('');
     } catch (error) {
       console.error('Failed to change password:', error);
-      toast.error('Failed to change password. Check your current password.');
+      toast.error('Failed to change password. Please try again.');
     }
   };
 
@@ -168,7 +170,7 @@ export default function SettingsPage() {
       toast.success('Verification email sent');
     } catch (error) {
       console.error('Failed to send verification:', error);
-      toast.error('Failed to send verification email');
+      toast.error('Failed to send verification email. Please try again.');
     }
   };
 
@@ -182,7 +184,7 @@ export default function SettingsPage() {
       toast.success('Notification preferences saved');
     } catch (error) {
       console.error('Failed to save notifications:', error);
-      toast.error('Failed to save preferences');
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
@@ -194,9 +196,9 @@ export default function SettingsPage() {
     return (
       <div className="min-h-screen">
         <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-white/5 rounded w-1/4"></div>
-            <div className="h-96 bg-white/5 rounded-xl"></div>
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-1/4" />
+            <Skeleton className="h-96 rounded-xl" />
           </div>
         </div>
       </div>
@@ -352,6 +354,7 @@ export default function SettingsPage() {
               disabled={saving}
               className="flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors disabled:opacity-50"
             >
+              {saving && <Spinner />}
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save Changes'}
             </button>

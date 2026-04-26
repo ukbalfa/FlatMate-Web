@@ -6,6 +6,8 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { db } from '../../../lib/firebase';
 import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
 import { Plus, Phone, ExternalLink, X, Edit2, Send, Trash2 } from 'lucide-react';
+import { Spinner } from '../../components/Spinner';
+import { SkeletonCard } from '../../components/Skeleton';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { deleteRoommateAction } from '../../actions/deleteRoommate';
@@ -145,6 +147,7 @@ export default function RoommatesPage() {
     await updateDoc(doc(db, 'users', editingId), editForm);
     setEditingId(null);
     setEditForm({});
+    toast.success('Profile updated');
     fetchUsers();
   };
 
@@ -205,19 +208,7 @@ export default function RoommatesPage() {
           {loading ? (
             <>
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-[#1a1d27] border border-white/5 rounded-xl p-6 animate-pulse">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-16 h-16 bg-white/10 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-5 bg-white/10 rounded w-3/4 mb-2"></div>
-                      <div className="h-4 bg-white/10 rounded w-1/2"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-white/10 rounded w-full"></div>
-                    <div className="h-4 bg-white/10 rounded w-2/3"></div>
-                  </div>
-                </div>
+                <SkeletonCard key={i} />
               ))}
             </>
           ) : (

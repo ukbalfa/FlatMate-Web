@@ -4,6 +4,8 @@ import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: "FlatMate",
   description: "FlatMate Dashboard",

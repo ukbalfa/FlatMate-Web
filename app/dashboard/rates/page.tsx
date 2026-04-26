@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, ArrowUpDown } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import { toast } from 'sonner';
 
 const PAIRS = [
@@ -111,16 +112,16 @@ export default function RatesPage() {
             </div>
 
             <div>
-              {loading ? (
-                <>
+{loading ? (
+                <div className="space-y-0">
                   {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700 animate-pulse">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                    <div key={i} className="flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-16" />
                     </div>
                   ))}
-                </>
+                </div>
               ) : (
                 PAIRS.map((pair, i) => {
                 const rate = getPairRate(today, pair.base, pair.quote);

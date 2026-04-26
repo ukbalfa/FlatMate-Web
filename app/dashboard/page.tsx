@@ -11,8 +11,11 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
+import { Skeleton, SkeletonCard } from '../components/Skeleton';
+import { EmptyState } from '../components/EmptyState';
 import {
   Receipt,
   CheckSquare,
@@ -26,6 +29,7 @@ import {
   ArrowRight,
   Wallet,
   Activity,
+  Info,
 } from 'lucide-react';
 
 interface Expense {
@@ -97,7 +101,6 @@ export default function DashboardPage() {
       const currentDate = new Date();
       const weekStart = getMonday(currentDate);
 
-      // Load all data in parallel
       const [expensesSnap, tasksSnap, cleaningSnap, usersSnap] = await Promise.all([
         getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc'), limit(50))),
         getDocs(query(collection(db, 'tasks'), orderBy('dueDate'))),
@@ -128,10 +131,10 @@ export default function DashboardPage() {
       setCleaningTasks(cleaningData);
       setUsers(usersData);
 
-      // Generate activity feed
       generateActivityFeed(expensesData, tasksData, usersData);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
+      toast.error('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -293,10 +296,33 @@ export default function DashboardPage() {
             Welcome back, {userProfile?.name || userProfile?.username}!
           </motion.h1>
           <p className="text-gray-400 mt-2">
-            Here's what's happening with your flat this month
+            Here&apos;s what&apos;s happening with your flat this month
           </p>
         </div>
 
+        {loading ? (
+          <div className="space-y-6">
+            {/* Stats skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+            {/* Content skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+              <div className="space-y-6">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
@@ -304,8 +330,9 @@ export default function DashboardPage() {
               key={stat.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors"
+              whileHover={{ scale: 1.02 }}
+              transition={{ delay: index * 0.1, duration: 0.2 }}
+              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -402,9 +429,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : activities.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No recent activity
-                </div>
+                <EmptyState
+                  emoji="🔔"
+                  title="No recent activity"
+                  description="Activity from expenses, tasks, and settlements will appear here"
+                />
               ) : (
                 <div className="space-y-3">
                   {activities.map((activity, index) => (
@@ -465,10 +494,11 @@ export default function DashboardPage() {
               </div>
 
               {myTasks.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  <CheckSquare className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">All caught up!</p>
-                </div>
+                <EmptyState
+                  icon={<CheckSquare className="w-8 h-8" />}
+                  title="All caught up!"
+                  description="You have no pending tasks right now. Enjoy the peace."
+                />
               ) : (
                 <div className="space-y-3">
                   {myTasks.slice(0, 5).map((task) => {
@@ -536,10 +566,11 @@ export default function DashboardPage() {
               </div>
 
               {myCleaning.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  <Sparkles className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No cleaning tasks this week</p>
-                </div>
+                <EmptyState
+                  icon={<Sparkles className="w-8 h-8" />}
+                  title="No cleaning tasks"
+                  description="You have no cleaning duties this week. Enjoy!"
+                />
               ) : (
                 <div className="space-y-3">
                   {myCleaning.map((task) => (
@@ -625,9 +656,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+            </div>
           </div>
+        </>
+        )}
         </div>
       </div>
-    </div>
   );
 }

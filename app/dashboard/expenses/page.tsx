@@ -1,8 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { db } from '../../../lib/firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, getDocs, where } from 'firebase/firestore';
 import { Trash2, Repeat, Plus, X, Calendar, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Spinner } from '../../components/Spinner';
+import { Skeleton, SkeletonList } from '../../components/Skeleton';
+import { EmptyState } from '../../components/EmptyState';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -88,6 +92,7 @@ export default function ExpensesPage() {
   const [recurrencePattern, setRecurrencePattern] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
   const [showRecurringSection, setShowRecurringSection] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'expenses'), orderBy('date', 'desc'));
@@ -124,10 +129,9 @@ export default function ExpensesPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !category || !date) return;
-    
+    setSubmitting(true);
     try {
       if (isRecurring) {
-        // Create recurring expense template
         const recurringData = {
           amount: Number(amount),
           category,
@@ -142,7 +146,6 @@ export default function ExpensesPage() {
         
         const recurringRef = await addDoc(collection(db, 'recurringExpenses'), recurringData);
         
-        // Generate and create all instances
         const dates = generateRecurringDates(date, recurrencePattern, recurrenceEndDate || undefined);
         const batchPromises = dates.map(d => 
           addDoc(collection(db, 'expenses'), {
@@ -161,12 +164,10 @@ export default function ExpensesPage() {
         await Promise.all(batchPromises);
         toast.success(`Recurring ${recurrencePattern} expense created with ${dates.length} instances`);
         
-        // Reset recurring state
         setIsRecurring(false);
         setRecurrenceEndDate('');
         loadRecurringExpenses();
       } else {
-        // Create single expense
         await addDoc(collection(db, 'expenses'), {
           amount: Number(amount),
           category,
@@ -175,17 +176,18 @@ export default function ExpensesPage() {
           note,
           isRecurring: false,
         });
-        toast.success('Expense added');
+        toast.success('Expense added successfully');
       }
       
-      // Reset form
       setAmount('');
       setCategory('Rent');
       setDate(new Date().toISOString().slice(0, 10));
       setNote('');
     } catch (error) {
       console.error('Failed to add expense:', error);
-      toast.error('Failed to add expense');
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -307,9 +309,11 @@ export default function ExpensesPage() {
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+                maxLength={100}
                 className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 placeholder="Optional"
               />
+              <div className="text-right text-xs text-gray-400 mt-1">{note.length}/100</div>
             </div>
           </div>
           
@@ -370,8 +374,10 @@ export default function ExpensesPage() {
           
           <button
             type="submit"
-            className="w-full mt-4 bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition"
+            disabled={submitting}
+            className="w-full mt-4 bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
+            {submitting && <Spinner />}
             {isRecurring ? `Create Recurring ${recurrencePattern} Expense` : 'Add Expense'}
           </button>
         </form>
@@ -479,33 +485,26 @@ export default function ExpensesPage() {
           {/* Transaction List */}
           <div className="space-y-0">
             {loading ? (
-              <>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="py-4 border-b border-[#f3f4f6] dark:border-gray-700 animate-pulse">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
-                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </>
+              <SkeletonList rows={4} />
             ) : filtered.length === 0 ? (
-              <div className="py-8 text-center text-[#6b7280] dark:text-gray-400 text-sm">No expenses found.</div>
+              <EmptyState
+                emoji="📊"
+                title="No expenses yet"
+                description="Split your first cost with your flatmates"
+                action={{
+                  label: 'Add Expense',
+                  onClick: () => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }),
+                }}
+              />
             ) : (
               filtered.map((e, i) => {
                 const isLast = i === filtered.length - 1;
                 return (
-                  <div
+                  <motion.div
                     key={e.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: i * 0.04 }}
                     className={`flex items-center justify-between py-4 ${
                       !isLast ? 'border-b border-[#f3f4f6] dark:border-gray-700' : ''
                     }`}
@@ -539,7 +538,7 @@ export default function ExpensesPage() {
                         </button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}

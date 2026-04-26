@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import NotificationsDropdown from '../components/NotificationsDropdown';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -202,7 +203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="flex items-center h-16 px-5 bg-[#13161f]/80 backdrop-blur-sm border-b border-white/[0.06] sticky top-0 z-30">
           {/* Left: hamburger (mobile only) */}
           <button
-            className="lg:hidden p-2 rounded-lg hover:bg-white/[0.06] transition-colors mr-3"
+            className="lg:hidden p-2 rounded-lg hover:bg-white/[0.06] transition-colors mr-3 min-h-[44px] min-w-[44px] flex items-center justify-center"
             onClick={() => setSidebarOpen(true)}
             aria-label="Toggle sidebar"
           >
@@ -253,7 +254,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Main content */}
         <main className="flex-1 p-6 sm:p-8 page-enter">
-          <div className="max-w-5xl mx-auto w-full">{children}</div>
+          <div className="max-w-5xl mx-auto w-full">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </div>
         </main>
       </div>
     </div>

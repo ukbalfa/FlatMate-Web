@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { motion } from 'framer-motion';
 import { Check, Eye, EyeOff } from 'lucide-react';
+import { Spinner } from '../components/Spinner';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   const [isSetupMode, setIsSetupMode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     try {
       if (isSetupMode) {
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
@@ -47,12 +50,15 @@ export default function LoginPage() {
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       if (!userDoc.exists()) {
         setError('User profile not found');
+        setSubmitting(false);
         return;
       }
       router.push('/dashboard');
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error.message || 'An error occurred');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -150,8 +156,10 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition"
+                disabled={submitting}
+                className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
               >
+                {submitting && <Spinner />}
                 {isSetupMode ? "Create Admin Account" : "Sign in"}
               </button>
               {error && <div className="text-red-500 dark:text-red-400 text-sm text-center mt-2">{error}</div>}

@@ -23,10 +23,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **React 19**
 - **TypeScript 5** (strict mode)
 - **Tailwind CSS v4** (CSS-based `@theme` config in `app/globals.css`)
-- **Firebase Firestore** (client-side only — no Auth, no Storage, no API routes)
+- **Firebase Firestore & Auth** (client SDK + `firebase-admin` in Server Actions)
 - **Framer Motion** (animations)
 - **Lucide React** (icons)
 - **next-themes** (dark/light mode)
+- **sonner** (toast notifications)
 
 ## Code Style
 
@@ -57,7 +58,7 @@ import { Plus, Trash2 } from 'lucide-react';
 - All pages are **default-exported named functions**: `export default function ExpensesPage() { ... }`
 - Naming: `PascalCase` + `Page` suffix for pages (e.g., `CleaningPage`, `TasksPage`)
 - Small helper components may be defined inline within the same file as non-exported functions
-- **No `components/` directory exists** — all UI is inline in page/layout files
+- Reusable components belong in `app/components/` (e.g. `LanguageSwitcher.tsx`, `NotificationsDropdown.tsx`)
 
 ### TypeScript
 
@@ -102,14 +103,14 @@ import { Plus, Trash2 } from 'lucide-react';
 ### Error Handling
 
 - Use try/catch with **meaningful error messages** — do not swallow the error variable
-- Show errors inline via component state (no toast system exists)
+- Show errors using the `sonner` toast system: `toast.error(message)` or inline via component state
 - Guard clauses for form validation: `if (!name.trim() || !user) return;`
 - No error boundaries are defined — add one if the user requests it
 
 ### Firebase / Data Layer
 
-- All data operations are **direct Firestore calls from client components**
-- No API routes, no server actions, no data-fetching library
+- **Most data operations are direct Firestore calls from client components**
+- Server Actions (`app/actions/`) with `firebase-admin` are used for privileged ops (like `deleteUser`)
 - **Firebase Auth is used** — see `context/AuthContext.tsx` for auth state management
 - Common fetch pattern (reused across pages):
 ```typescript

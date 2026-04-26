@@ -14,6 +14,9 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { Spinner } from '../../components/Spinner';
+import { SkeletonTable } from '../../components/Skeleton';
+import { EmptyState } from '../../components/EmptyState';
 import {
   Wallet,
   ArrowRightLeft,
@@ -25,6 +28,7 @@ import {
   TrendingDown,
   Minus,
   Calendar,
+  Info,
 } from 'lucide-react';
 
 interface User {
@@ -80,6 +84,7 @@ export default function BalancesPage() {
     amount: '',
     note: '',
   });
+  const [submittingSettlement, setSubmittingSettlement] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -117,7 +122,7 @@ export default function BalancesPage() {
       );
     } catch (error) {
       console.error('Failed to load data:', error);
-      toast.error('Failed to load balances');
+      toast.error('No connection. Check your internet.');
     } finally {
       setLoading(false);
     }
@@ -192,7 +197,7 @@ export default function BalancesPage() {
       toast.error('Cannot settle to yourself');
       return;
     }
-
+    setSubmittingSettlement(true);
     try {
       await addDoc(collection(db, 'settlements'), {
         from: settlementForm.from,
@@ -203,13 +208,15 @@ export default function BalancesPage() {
         status: 'completed',
         createdAt: new Date().toISOString(),
       });
-      toast.success('Settlement recorded');
+      toast.success('Payment recorded successfully');
       setShowSettlementModal(false);
       setSettlementForm({ from: '', to: '', amount: '', note: '' });
       loadData();
     } catch (error) {
       console.error('Failed to create settlement:', error);
-      toast.error('Failed to record settlement');
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setSubmittingSettlement(false);
     }
   };
 
@@ -223,19 +230,19 @@ export default function BalancesPage() {
       loadData();
     } catch (error) {
       console.error('Failed to complete settlement:', error);
-      toast.error('Failed to update settlement');
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
   const deleteSettlement = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this settlement?')) return;
+    if (!window.confirm('Are you sure you want to delete this settlement? This cannot be undone.')) return;
     try {
       await deleteDoc(doc(db, 'settlements', id));
-      toast.success('Settlement deleted');
+      toast.success('Settlement deleted successfully');
       loadData();
     } catch (error) {
       console.error('Failed to delete settlement:', error);
-      toast.error('Failed to delete settlement');
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
@@ -312,11 +319,7 @@ export default function BalancesPage() {
         </div>
 
         {loading ? (
-          <div className="animate-pulse space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-white/5 rounded-xl"></div>
-            ))}
-          </div>
+          <SkeletonTable rows={4} />
         ) : (
           <>
             {/* Balances Table */}
@@ -378,10 +381,11 @@ export default function BalancesPage() {
                 <h2 className="text-lg font-semibold text-white">Who Owes Whom</h2>
               </div>
               {debts.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <CheckCircle className="w-12 h-12 text-[#1D9E75] mx-auto mb-3" />
-                  <p className="text-gray-400">All settled up! No debts for this month.</p>
-                </div>
+                <EmptyState
+                  icon={<CheckCircle className="w-8 h-8" />}
+                  title="All settled up!"
+                  description="No debts for this month. Everyone's even."
+                />
               ) : (
                 <div className="divide-y divide-white/5">
                   {debts.map((debt, index) => (
@@ -430,8 +434,12 @@ export default function BalancesPage() {
                 <h2 className="text-lg font-semibold text-white">Settlement History</h2>
               </div>
               {settlements.length === 0 ? (
-                <div className="px-6 py-8 text-center text-gray-500">
-                  No settlements recorded for this month.
+                <div className="py-8">
+                  <EmptyState
+                    emoji="📝"
+                    title="No settlements yet"
+                    description="Record a payment when someone settles their debt"
+                  />
                 </div>
               ) : (
                 <div className="divide-y divide-white/5">
@@ -584,8 +592,10 @@ export default function BalancesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-[#1D9E75] text-white rounded-lg px-4 py-2.5 font-medium hover:bg-[#188a65] transition"
+                  disabled={submittingSettlement}
+                  className="flex-1 bg-[#1D9E75] text-white rounded-lg px-4 py-2.5 font-medium hover:bg-[#188a65] transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
+                  {submittingSettlement && <Spinner />}
                   Record Payment
                 </button>
               </div>

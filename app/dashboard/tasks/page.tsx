@@ -1,8 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { CheckSquare, Trash2 } from 'lucide-react';
+import { Spinner } from '../../components/Spinner';
+import { SkeletonList } from '../../components/Skeleton';
+import { EmptyState } from '../../components/EmptyState';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -91,10 +95,10 @@ export default function TasksPage() {
       setText('');
       setDueDate('');
       setAssignedTo('');
-      toast.success('Task added');
+      toast.success('Task added successfully');
     } catch (error) {
       console.error('Failed to add task:', error);
-      toast.error('Failed to add task');
+      toast.error('Something went wrong. Please try again.');
     } finally {
       setAdding(false);
     }
@@ -103,23 +107,23 @@ export default function TasksPage() {
   const toggleDone = async (task: Task) => {
     try {
       await updateDoc(doc(db, 'tasks', task.id), { done: !task.done });
-      toast.success('Task updated');
+      toast.success(task.done ? 'Task reopened' : 'Task marked complete! 🎉');
     } catch (error) {
       console.error('Failed to update task:', error);
-      toast.error('Failed to update');
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
   const isAdmin = userProfile?.role === 'admin';
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this?')) return;
+    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return;
     try {
       await deleteDoc(doc(db, 'tasks', id));
-      toast.success('Deleted successfully');
+      toast.success('Task deleted successfully');
     } catch (error) {
       console.error('Failed to delete task:', error);
-      toast.error('Failed to delete');
+      toast.error('Something went wrong. Please try again.');
     }
   };
 
@@ -136,9 +140,11 @@ export default function TasksPage() {
                 type="text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                maxLength={200}
                 className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 required
               />
+              <div className="text-right text-xs text-gray-400 mt-1">{text.length}/200</div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -170,9 +176,10 @@ export default function TasksPage() {
             </div>
             <button
               type="submit"
-              className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60"
               disabled={adding}
+              className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
             >
+              {adding && <Spinner />}
               Add Task
             </button>
           </form>
@@ -188,25 +195,17 @@ export default function TasksPage() {
           </div>
 
           {loading ? (
-            <>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="py-3 border-b border-[#f3f4f6] dark:border-gray-700 animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                    </div>
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                  </div>
-                </div>
-              ))}
-            </>
+            <SkeletonList rows={4} />
           ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-[#6b7280] dark:text-gray-400">
-              <CheckSquare className="w-12 h-12 mb-3 opacity-40" />
-              <span className="text-sm">No tasks yet</span>
-            </div>
+            <EmptyState
+              emoji="✅"
+              title="All clear!"
+              description="No tasks right now. Enjoy the peace."
+              action={{
+                label: 'Add Task',
+                onClick: () => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }),
+              }}
+            />
           ) : (
             <div className="space-y-0">
               {tasks.map((task, i) => {
@@ -224,8 +223,11 @@ export default function TasksPage() {
                 }
 
                 return (
-                  <div
+                  <motion.div
                     key={task.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: i * 0.04 }}
                     className={`flex items-center gap-3 py-3 ${
                       !isLast ? 'border-b border-[#f3f4f6] dark:border-gray-700' : ''
                     }`}
@@ -240,17 +242,24 @@ export default function TasksPage() {
                       }`}
                       aria-label="Toggle done"
                     >
-                      {task.done && (
-                        <svg
-                          className="w-3 h-3 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                      <AnimatePresence mode="wait">
+                        {task.done && (
+                          <motion.svg
+                            key={`check-${task.id}`}
+                            initial={{ scale: 0, rotate: -45 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            exit={{ scale: 0 }}
+                            transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] as const }}
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </motion.svg>
+                        )}
+                      </AnimatePresence>
                     </button>
                     <div className="flex-1 min-w-0">
                       <div
@@ -278,7 +287,7 @@ export default function TasksPage() {
                         <Trash2 size={16} />
                       </button>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
