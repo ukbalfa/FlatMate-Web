@@ -55,8 +55,13 @@ export default function TasksPage() {
   const [adding, setAdding] = useState(false);
 
   const fetchUsers = async () => {
-    const snap = await getDocs(collection(db, 'users'));
-    setUsers(snap.docs.map(doc => doc.data() as User));
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      toast.error('Failed to load users');
+    }
   };
 
   useEffect(() => {

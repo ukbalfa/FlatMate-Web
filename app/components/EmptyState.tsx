@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 
@@ -39,12 +40,12 @@ export function EmptyState({ icon, emoji, title, description, action }: EmptySta
 
       {action && (
         action.href ? (
-          <a
+          <Link
             href={action.href}
             className="inline-flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#188a65] transition-colors cursor-pointer"
           >
             {action.label}
-          </a>
+          </Link>
         ) : (
           <button
             onClick={action.onClick}

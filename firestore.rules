@@ -34,5 +34,14 @@ service cloud.firestore {
     match /settings/{document=**} {
       allow read, write: if isAuthenticated();
     }
+    match /settlements/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /recurringExpenses/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    match /notifications/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

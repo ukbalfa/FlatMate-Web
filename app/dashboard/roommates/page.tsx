@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db } from '../../../lib/firebase';
 import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
@@ -89,9 +89,15 @@ export default function RoommatesPage() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const snap = await getDocs(collection(db, 'users'));
-    setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-    setLoading(false);
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+    } catch (error) {
+      console.error('Failed to load roommates:', error);
+      toast.error('Failed to load roommates. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -111,7 +117,8 @@ export default function RoommatesPage() {
         messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
       };
-      const secondaryApp = initializeApp(config, 'Secondary');
+      const secondaryApp = getApps().find(a => a.name === 'Secondary')
+        ?? initializeApp(config, 'Secondary');
       const secondaryAuth = getAuth(secondaryApp);
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, username, password);
       await signOut(secondaryAuth);
@@ -144,11 +151,16 @@ export default function RoommatesPage() {
 
   const saveEdit = async () => {
     if (!editingId) return;
-    await updateDoc(doc(db, 'users', editingId), editForm);
-    setEditingId(null);
-    setEditForm({});
-    toast.success('Profile updated');
-    fetchUsers();
+    try {
+      await updateDoc(doc(db, 'users', editingId), editForm);
+      setEditingId(null);
+      setEditForm({});
+      toast.success('Profile updated');
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast.error('Failed to update profile. Please try again.');
+    }
   };
 
   const handleDelete = async () => {

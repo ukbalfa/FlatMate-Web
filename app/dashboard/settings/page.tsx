@@ -38,6 +38,7 @@ interface UserProfile {
   instagram?: string;
   joinedAt?: string;
   emailVerified?: boolean;
+  notifications?: Record<string, boolean>;
 }
 
 const COLORS = [
@@ -102,10 +103,8 @@ export default function SettingsPage() {
           instagram: data.instagram || '',
           color: data.color || 'blue',
         });
-        // @ts-ignore
         if (data.notifications) {
-          // @ts-ignore
-          setNotifications(data.notifications as Record<string, boolean>);
+          setNotifications(data.notifications);
         }
       }
     } catch (error) {

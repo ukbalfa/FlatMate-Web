@@ -57,9 +57,16 @@ export default function CleaningPage() {
   const weekStart = getMonday(new Date());
 
   useEffect(() => {
-    getDocs(collection(db, 'users')).then(snap => {
-      setUsers(snap.docs.map(doc => doc.data() as User));
-    });
+    const loadUsers = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        toast.error('Failed to load users');
+      }
+    };
+    loadUsers();
   }, []);
 
   useEffect(() => {

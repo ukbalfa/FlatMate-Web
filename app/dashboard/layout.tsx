@@ -69,6 +69,14 @@ function mapToDashboardUser(userProfile: { uid: string; username: string; name?:
 }
 
 function SidebarContent({ user, setSidebarOpen, handleLogout }: { user: DashboardUser | null, setSidebarOpen: (v: boolean) => void, handleLogout: () => void }) {
+  const COLOR_MAP: Record<string, string> = {
+    blue: '#3b82f6',
+    amber: '#fbbf24',
+    purple: '#a855f7',
+    teal: '#1D9E75',
+    rose: '#f43f5e',
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -86,7 +94,7 @@ function SidebarContent({ user, setSidebarOpen, handleLogout }: { user: Dashboar
           <div className="flex items-center gap-3 mb-3 px-2">
             <span
               className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg"
-              style={{ background: user.color || '#1D9E75' }}
+              style={{ background: COLOR_MAP[user.color ?? ''] ?? '#1D9E75' }}
             >
               {user.name?.[0] || user.username?.[0] || '?'}
             </span>
@@ -161,6 +169,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const dashboardUser = mapToDashboardUser(userProfile);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0b0f]">
+        <div className="flex flex-col items-center gap-3">
+          <span className="w-3 h-3 rounded-full bg-[#1D9E75] animate-pulse" />
+          <span className="text-sm text-slate-400">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#0a0b0f]">

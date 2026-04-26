@@ -93,14 +93,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markAllAsRead = async () => {
     const unreadNotifications = notifications.filter((n) => !n.read);
-    await Promise.all(
-      unreadNotifications.map((n) =>
-        updateDoc(doc(db, 'notifications', n.id), {
-          read: true,
-          readAt: serverTimestamp(),
-        })
-      )
-    );
+    try {
+      await Promise.all(
+        unreadNotifications.map((n) =>
+          updateDoc(doc(db, 'notifications', n.id), {
+            read: true,
+            readAt: serverTimestamp(),
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
   };
 
   const createNotification = async (

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, limit as fsLimit } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { motion } from 'framer-motion';
 import { Check, Eye, EyeOff } from 'lucide-react';
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [pageReady, setPageReady] = useState(false);
   const [isSetupMode, setIsSetupMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [hasExistingUsers, setHasExistingUsers] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,6 +26,11 @@ export default function LoginPage() {
       }
       setTimeout(() => setPageReady(true), 50);
     });
+    
+    getDocs(query(collection(db, 'users'), fsLimit(1)))
+      .then(snap => { if (!snap.empty) setHasExistingUsers(true); })
+      .catch(() => {});
+    
     return () => unsubscribe();
   }, [router]);
 
@@ -33,6 +39,11 @@ export default function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
+      if (isSetupMode && hasExistingUsers) {
+        setError('Admin already exists. Please sign in.');
+        setSubmitting(false);
+        return;
+      }
       if (isSetupMode) {
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
         const newUserData = {
@@ -163,13 +174,15 @@ export default function LoginPage() {
                 {isSetupMode ? "Create Admin Account" : "Sign in"}
               </button>
               {error && <div className="text-red-500 dark:text-red-400 text-sm text-center mt-2">{error}</div>}
-              <button
-                type="button"
-                onClick={() => setIsSetupMode(!isSetupMode)}
-                className="mt-4 text-xs text-gray-500 hover:text-white transition-colors"
-              >
-                Developer? {isSetupMode ? "Back to Login" : "Initialize First Admin"}
-              </button>
+              {!hasExistingUsers && (
+                <button
+                  type="button"
+                  onClick={() => setIsSetupMode(!isSetupMode)}
+                  className="mt-4 text-xs text-gray-500 hover:text-white transition-colors"
+                >
+                  Developer? {isSetupMode ? "Back to Login" : "Initialize First Admin"}
+                </button>
+              )}
             </form>
             <div className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
               Credentials are provided by your admin
