@@ -5,16 +5,15 @@ import { db } from '../../lib/firebase';
 import {
   collection,
   getDocs,
+  onSnapshot,
   query,
   orderBy,
   limit,
   where,
 } from 'firebase/firestore';
-import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../context/I18nContext';
 import Link from 'next/link';
-import { Skeleton, SkeletonCard } from '../components/Skeleton';
-import { EmptyState } from '../components/EmptyState';
 import {
   Receipt,
   CheckSquare,
@@ -28,7 +27,6 @@ import {
   ArrowRight,
   Wallet,
   Activity,
-  Info,
 } from 'lucide-react';
 
 interface Expense {
@@ -79,6 +77,7 @@ interface ActivityItem {
 
 export default function DashboardPage() {
   const { userProfile } = useAuth();
+  const { t } = useI18n();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
@@ -91,53 +90,58 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+    const currentDate = new Date();
+    const weekStart = getMonday(currentDate);
+    
     setLoading(true);
-    try {
-      const currentDate = new Date();
-      const weekStart = getMonday(currentDate);
 
-      const [expensesSnap, tasksSnap, cleaningSnap, usersSnap] = await Promise.all([
-        getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc'), limit(50))),
-        getDocs(query(collection(db, 'tasks'), orderBy('dueDate'))),
-        getDocs(
-          query(
-            collection(db, 'cleaning'),
-            where('weekStart', '==', weekStart)
-          )
-        ),
-        getDocs(collection(db, 'users')),
-      ]);
+    let expensesUnsub = () => {};
+    let tasksUnsub = () => {};
+    let cleaningUnsub = () => {};
+    let usersUnsub = () => {};
 
-      const expensesData = expensesSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Expense)
-      );
-      const tasksData = tasksSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Task)
-      );
-      const cleaningData = cleaningSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as CleaningTask)
-      );
-      const usersData = usersSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as User)
-      );
-
-      setExpenses(expensesData);
-      setTasks(tasksData);
-      setCleaningTasks(cleaningData);
+    // Initial fetch of users to render everything properly
+    getDocs(collection(db, 'users')).then((usersSnap) => {
+      const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
       setUsers(usersData);
 
-      generateActivityFeed(expensesData, tasksData, usersData);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      toast.error('Failed to load dashboard data. Please try again.');
-    } finally {
+      // Listeners
+      expensesUnsub = onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc'), limit(50)), (snap) => {
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+        setExpenses(data);
+      });
+
+      tasksUnsub = onSnapshot(query(collection(db, 'tasks'), orderBy('dueDate')), (snap) => {
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+        setTasks(data);
+      });
+
+      cleaningUnsub = onSnapshot(query(collection(db, 'cleaning'), where('weekStart', '==', weekStart)), (snap) => {
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CleaningTask));
+        setCleaningTasks(data);
+      });
+      
+      usersUnsub = onSnapshot(collection(db, 'users'), (snap) => {
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        setUsers(data);
+      });
+      
       setLoading(false);
-    }
-  };
+    });
+
+    return () => {
+      expensesUnsub();
+      tasksUnsub();
+      cleaningUnsub();
+      usersUnsub();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    generateActivityFeed(expenses, tasks, users);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, tasks, users]);
 
   const generateActivityFeed = (
     expensesData: Expense[],
@@ -250,15 +254,15 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: 'This Month',
+      title: t('dashboard.monthlyOverview'),
       value: totalMonthExpenses.toLocaleString() + ' UZS',
-      subtitle: 'Total expenses',
+      subtitle: t('dashboard.totalExpenses'),
       icon: Wallet,
       color: 'bg-[#1D9E75]',
-      trend: myMonthExpenses > 0 ? 'You paid ' + myMonthExpenses.toLocaleString() : null,
+      trend: myMonthExpenses > 0 ? t('dashboard.yourContribution') + ': ' + myMonthExpenses.toLocaleString() : null,
     },
     {
-      title: 'My Tasks',
+      title: t('dashboard.myTasks'),
       value: myTasks.length.toString(),
       subtitle: `${overdueTasks.length} overdue`,
       icon: CheckSquare,
@@ -266,7 +270,7 @@ export default function DashboardPage() {
       alert: overdueTasks.length > 0,
     },
     {
-      title: 'Cleaning',
+      title: t('nav.cleaning'),
       value: myCleaning.length.toString(),
       subtitle: todaysCleaning.length > 0 ? `${todaysCleaning.length} today` : 'This week',
       icon: Sparkles,
@@ -274,7 +278,7 @@ export default function DashboardPage() {
       alert: todaysCleaning.length > 0,
     },
     {
-      title: 'Roommates',
+      title: t('nav.roommates'),
       value: users.length.toString(),
       subtitle: 'Active members',
       icon: Users,
@@ -292,36 +296,13 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-bold text-white"
           >
-            Welcome back, {userProfile?.name || userProfile?.username}!
+            {t('dashboard.welcome')}, {userProfile?.name || userProfile?.username}!
           </motion.h1>
           <p className="text-gray-400 mt-2">
             Here&apos;s what&apos;s happening with your flat this month
           </p>
         </div>
 
-        {loading ? (
-          <div className="space-y-6">
-            {/* Stats skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-            {/* Content skeleton */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <SkeletonCard />
-                <SkeletonCard />
-              </div>
-              <div className="space-y-6">
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
@@ -329,9 +310,8 @@ export default function DashboardPage() {
               key={stat.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ delay: index * 0.1, duration: 0.2 }}
-              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors cursor-pointer"
+              transition={{ delay: index * 0.1 }}
+              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -358,33 +338,33 @@ export default function DashboardPage() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Quick Actions & Activity */}
+          {/* Left Column - {t('dashboard.quickActions')} & Activity */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Quick Actions */}
+            {/* {t('dashboard.quickActions')} */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('dashboard.quickActions')}</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   {
-                    label: 'Add Expense',
+                    label: t('expenses.addExpense'),
                     href: '/dashboard/expenses',
                     icon: Receipt,
                     color: 'bg-[#1D9E75]',
                   },
                   {
-                    label: 'Add Task',
+                    label: t('tasks.addTask'),
                     href: '/dashboard/tasks',
                     icon: CheckSquare,
                     color: 'bg-blue-500',
                   },
                   {
-                    label: 'View Balances',
+                    label: t('balances.title'),
                     href: '/dashboard/balances',
                     icon: Wallet,
                     color: 'bg-amber-500',
                   },
                   {
-                    label: 'Exchange Rates',
+                    label: t('rates.title'),
                     href: '/dashboard/rates',
                     icon: TrendingUp,
                     color: 'bg-purple-500',
@@ -411,13 +391,13 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-[#1D9E75]" />
-                  Recent Activity
+                  {t('dashboard.recentActivity')}
                 </h2>
                 <Link
                   href="/dashboard/expenses"
                   className="text-sm text-[#1D9E75] hover:text-[#188a65] flex items-center gap-1"
                 >
-                  View all <ArrowRight className="w-4 h-4" />
+                  {t('dashboard.viewAllExpenses')} <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
 
@@ -428,11 +408,9 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : activities.length === 0 ? (
-                <EmptyState
-                  emoji="🔔"
-                  title="No recent activity"
-                  description="Activity from expenses, tasks, and settlements will appear here"
-                />
+                <div className="text-center py-8 text-gray-500">
+                  No recent activity
+                </div>
               ) : (
                 <div className="space-y-3">
                   {activities.map((activity, index) => (
@@ -484,20 +462,17 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-500" />
-                  My Tasks
-                </h2>
+                  <Clock className="w-5 h-5 text-blue-500" />{t('dashboard.myTasks')}</h2>
                 <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-medium">
                   {myTasks.length} pending
                 </span>
               </div>
 
               {myTasks.length === 0 ? (
-                <EmptyState
-                  icon={<CheckSquare className="w-8 h-8" />}
-                  title="All caught up!"
-                  description="You have no pending tasks right now. Enjoy the peace."
-                />
+                <div className="text-center py-6 text-gray-500">
+                  <CheckSquare className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">All caught up!</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {myTasks.slice(0, 5).map((task) => {
@@ -556,20 +531,17 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  My Cleaning
-                </h2>
+                  <Sparkles className="w-5 h-5 text-amber-500" />{t('dashboard.myCleaning')}</h2>
                 <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
                   {myCleaning.length} tasks
                 </span>
               </div>
 
               {myCleaning.length === 0 ? (
-                <EmptyState
-                  icon={<Sparkles className="w-8 h-8" />}
-                  title="No cleaning tasks"
-                  description="You have no cleaning duties this week. Enjoy!"
-                />
+                <div className="text-center py-6 text-gray-500">
+                  <Sparkles className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No cleaning tasks this week</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {myCleaning.map((task) => (
@@ -606,13 +578,11 @@ export default function DashboardPage() {
             {/* Monthly Summary */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-                Monthly Overview
-              </h2>
+                <TrendingUp className="w-5 h-5 text-purple-500" />{t('dashboard.monthlyOverview')}</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">Your contribution</span>
+                    <span className="text-gray-400">{t('dashboard.yourContribution')}</span>
                     <span className="text-white">
                       {((myMonthExpenses / (totalMonthExpenses || 1)) * 100).toFixed(
                         0
@@ -642,24 +612,22 @@ export default function DashboardPage() {
                     href="/dashboard/expenses"
                     className="flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors"
                   >
-                    <span>View all expenses</span>
+                    <span>{t('dashboard.viewAllExpenses')} expenses</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <Link
                     href="/dashboard/balances"
                     className="flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors mt-3"
                   >
-                    <span>Check who owes whom</span>
+                    <span>{t('dashboard.checkWhoOwes')}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
               </div>
             </div>
-            </div>
           </div>
-        </>
-        )}
         </div>
       </div>
+    </div>
   );
 }

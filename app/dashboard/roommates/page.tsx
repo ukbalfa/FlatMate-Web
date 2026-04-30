@@ -1,13 +1,12 @@
 'use client';
+import { useI18n } from '../../../context/I18nContext';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { db } from '../../../lib/firebase';
 import { collection, getDocs, updateDoc, doc, setDoc } from 'firebase/firestore';
 import { Plus, Phone, ExternalLink, X, Edit2, Send, Trash2 } from 'lucide-react';
-import { Spinner } from '../../components/Spinner';
-import { SkeletonCard } from '../../components/Skeleton';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { deleteRoommateAction } from '../../actions/deleteRoommate';
@@ -69,6 +68,7 @@ function formatMonth(val: unknown): string {
 }
 
 export default function RoommatesPage() {
+  const { t } = useI18n();
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [name, setName] = useState('');
@@ -211,8 +211,8 @@ export default function RoommatesPage() {
               onChange={(e) => setSortBy(e.target.value as 'date' | 'name')}
               className="appearance-none bg-[#1a1d27] border border-white/10 text-white text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block px-4 py-2 outline-none cursor-pointer hover:bg-white/5 transition-colors shadow-sm"
             >
-              <option value="date">Date Joined</option>
-              <option value="name">Alphabetical</option>
+              <option className="bg-[#1a1d27]" value="date">Date Joined</option>
+              <option className="bg-[#1a1d27]" value="name">{t('roommates.alphabetical')}</option>
             </select>
           </div>
         </div>
@@ -220,7 +220,19 @@ export default function RoommatesPage() {
           {loading ? (
             <>
               {[1, 2, 3].map((i) => (
-                <SkeletonCard key={i} />
+                <div key={i} className="bg-[#1a1d27] border border-white/5 rounded-xl p-6 animate-pulse">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-16 h-16 bg-white/10 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="h-5 bg-white/10 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-white/10 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-white/10 rounded w-full"></div>
+                    <div className="h-4 bg-white/10 rounded w-2/3"></div>
+                  </div>
+                </div>
               ))}
             </>
           ) : (
@@ -514,7 +526,7 @@ export default function RoommatesPage() {
                     <h3 className="text-xl font-bold text-white mb-2">Remove Roommate?</h3>
                     <p className="text-gray-400 mb-6 text-sm">Are you sure you want to remove <span className="text-white font-semibold">{roommateToDelete.name}</span>? This action cannot be undone and they will lose access to the dashboard.</p>
                     <div className="flex justify-end gap-3">
-                      <button onClick={() => setRoommateToDelete(null)} className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors">Cancel</button>
+                      <button onClick={() => setRoommateToDelete(null)} className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors">{t('common.cancel')}</button>
                       <button onClick={handleDelete} className="px-4 py-2 text-sm font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors">Yes, Remove</button>
                     </div>
                   </div>

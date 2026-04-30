@@ -1,21 +1,21 @@
 'use client';
+import { useI18n } from '../../context/I18nContext';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, getDocs, query, limit as fsLimit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, limit as fsLimit, query } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { motion } from 'framer-motion';
 import { Check, Eye, EyeOff } from 'lucide-react';
-import { Spinner } from '../components/Spinner';
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   const [isSetupMode, setIsSetupMode] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [hasExistingUsers, setHasExistingUsers] = useState(false);
   const router = useRouter();
 
@@ -25,23 +25,19 @@ export default function LoginPage() {
         router.replace('/dashboard');
       }
       setTimeout(() => setPageReady(true), 50);
+      getDocs(query(collection(db, 'users'), fsLimit(1)))
+        .then(snap => { if (!snap.empty) setHasExistingUsers(true); })
+        .catch(() => {});
     });
-    
-    getDocs(query(collection(db, 'users'), fsLimit(1)))
-      .then(snap => { if (!snap.empty) setHasExistingUsers(true); })
-      .catch(() => {});
-    
     return () => unsubscribe();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSubmitting(true);
     try {
       if (isSetupMode && hasExistingUsers) {
         setError('Admin already exists. Please sign in.');
-        setSubmitting(false);
         return;
       }
       if (isSetupMode) {
@@ -61,15 +57,12 @@ export default function LoginPage() {
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       if (!userDoc.exists()) {
         setError('User profile not found');
-        setSubmitting(false);
         return;
       }
       router.push('/dashboard');
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error.message || 'An error occurred');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -146,7 +139,7 @@ export default function LoginPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Password</label>
+                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('auth.password')}</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -167,22 +160,18 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition"
               >
-                {submitting && <Spinner />}
                 {isSetupMode ? "Create Admin Account" : "Sign in"}
               </button>
               {error && <div className="text-red-500 dark:text-red-400 text-sm text-center mt-2">{error}</div>}
-              {!hasExistingUsers && (
-                <button
-                  type="button"
-                  onClick={() => setIsSetupMode(!isSetupMode)}
-                  className="mt-4 text-xs text-gray-500 hover:text-white transition-colors"
-                >
-                  Developer? {isSetupMode ? "Back to Login" : "Initialize First Admin"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsSetupMode(!isSetupMode)}
+                className="mt-4 text-xs text-gray-500 hover:text-white transition-colors"
+              >
+                Developer? {isSetupMode ? "Back to Login" : "Initialize First Admin"}
+              </button>
             </form>
             <div className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
               Credentials are provided by your admin

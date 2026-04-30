@@ -9,6 +9,7 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
   Timestamp,
@@ -32,6 +33,7 @@ interface NotificationsContextType {
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  clearAll: () => Promise<void>;
   createNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
 }
 
@@ -40,6 +42,7 @@ const NotificationsContext = createContext<NotificationsContextType>({
   unreadCount: 0,
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  clearAll: async () => {},
   createNotification: async () => {},
 });
 
@@ -53,6 +56,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!userProfile?.uid) {
+      // eslint-disable-next-line
       setNotifications([]);
       return;
     }
@@ -107,6 +111,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  
+  const clearAll = async () => {
+    try {
+      await Promise.all(
+        notifications.map((n) => deleteDoc(doc(db, 'notifications', n.id)))
+      );
+      // eslint-disable-next-line
+      setNotifications([]);
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+    }
+  };
+
   const createNotification = async (
     notification: Omit<Notification, 'id' | 'createdAt'>
   ) => {
@@ -129,6 +146,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         unreadCount,
         markAsRead,
         markAllAsRead,
+        clearAll,
         createNotification,
       }}
     >

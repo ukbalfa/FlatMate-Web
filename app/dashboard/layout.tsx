@@ -18,35 +18,47 @@ import {
   Moon,
   Settings,
   Wallet,
+  Megaphone,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import NotificationsDropdown from '../components/NotificationsDropdown';
+import { useI18n } from '../../context/I18nContext';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const navLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/rates", label: "Exchange Rates", icon: TrendingUp },
-  { href: "/dashboard/expenses", label: "Expenses", icon: Receipt },
-  { href: "/dashboard/balances", label: "Balances", icon: Wallet },
-  { href: "/dashboard/cleaning", label: "Cleaning", icon: Sparkles },
-  { href: "/dashboard/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/dashboard/roommates", label: "Roommates", icon: Users },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/rates", label: "nav.rates", icon: TrendingUp },
+  { href: "/dashboard/expenses", label: "nav.expenses", icon: Receipt },
+  { href: "/dashboard/balances", label: "nav.balances", icon: Wallet },
+  { href: "/dashboard/cleaning", label: "nav.cleaning", icon: Sparkles },
+  { href: "/dashboard/tasks", label: "nav.tasks", icon: CheckSquare },
+  { href: "/dashboard/roommates", label: "nav.roommates", icon: Users },
+  { href: "/dashboard/settings", label: "nav.settings", icon: Settings },
+  { href: "/dashboard/announcements", label: "nav.announcements", icon: Megaphone },
 ];
 
 const pageNames: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/dashboard/rates": "Exchange Rates",
-  "/dashboard/expenses": "Expenses",
-  "/dashboard/balances": "Balances",
-  "/dashboard/cleaning": "Cleaning Schedule",
-  "/dashboard/tasks": "Tasks",
-  "/dashboard/roommates": "Roommates",
-  "/dashboard/settings": "Settings",
+  "/dashboard": "nav.dashboard",
+  "/dashboard/rates": "nav.rates",
+  "/dashboard/expenses": "nav.expenses",
+  "/dashboard/balances": "nav.balances",
+  "/dashboard/cleaning": "nav.cleaning",
+  "/dashboard/tasks": "nav.tasks",
+  "/dashboard/roommates": "nav.roommates",
+  "/dashboard/settings": "nav.settings",
+  "/dashboard/announcements": "nav.announcements",
+};
+
+const COLOR_MAP: Record<string, string> = {
+  blue:   '#3b82f6',
+  amber:  '#fbbf24',
+  purple: '#a855f7',
+  teal:   '#1D9E75',
+  rose:   '#f43f5e',
 };
 
 interface DashboardUser {
@@ -118,6 +130,7 @@ function SidebarContent({ user, setSidebarOpen, handleLogout }: { user: Dashboar
 
 function SidebarNavLinks({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => void }) {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <nav className="flex-1 py-4 px-3 space-y-1">
@@ -139,7 +152,7 @@ function SidebarNavLinks({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => v
               onClick={() => setSidebarOpen(false)}
             >
               <link.icon className={`w-5 h-5 ${isActive ? 'text-[#1D9E75]' : ''}`} />
-              {link.label}
+              {t(link.label)}
             </Link>
           </motion.div>
         );
@@ -154,7 +167,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, userProfile, loading } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const pathname = usePathname();
-  const pageTitle = pageNames[pathname] || "Dashboard";
+  const { t } = useI18n();
+  const pageTitle = pageNames[pathname] ? t(pageNames[pathname]) : t("nav.dashboard");
   const isDark = resolvedTheme === "dark";
 
   useEffect(() => {

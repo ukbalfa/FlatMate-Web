@@ -7,7 +7,7 @@ import { useI18n } from '../../context/I18nContext';
 const languages = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
   { code: 'ru', name: 'Русский', flag: '🇷🇺' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'uz', name: "O'zbek", flag: '🇺🇿' },
 ] as const;
 
 export default function LanguageSwitcher() {

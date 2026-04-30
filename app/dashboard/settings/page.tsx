@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '../../../context/I18nContext';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { db, auth } from '../../../lib/firebase';
@@ -57,6 +58,7 @@ const NOTIFICATION_PREFS = [
 ];
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const { userProfile: contextProfile, user: firebaseUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -209,7 +211,7 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
+          <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
           <p className="text-gray-400 mt-1">Manage your profile, security, and preferences</p>
         </div>
 
@@ -272,7 +274,7 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Name</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.name')}</label>
                 <input
                   type="text"
                   value={editForm.name || ''}
@@ -281,7 +283,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Surname</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.surname')}</label>
                 <input
                   type="text"
                   value={editForm.surname || ''}
@@ -290,7 +292,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Occupation</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('roommates.occupation')}</label>
                 <input
                   type="text"
                   value={editForm.occupation || ''}
@@ -299,7 +301,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Phone</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.phone')}</label>
                 <input
                   type="tel"
                   value={editForm.phone || ''}
@@ -308,7 +310,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Telegram</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.telegram')}</label>
                 <input
                   type="text"
                   value={editForm.telegram || ''}
@@ -318,7 +320,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Instagram</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.instagram')}</label>
                 <input
                   type="text"
                   value={editForm.instagram || ''}
@@ -371,7 +373,7 @@ export default function SettingsPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Mail className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">Email Verification</h3>
+                <h3 className="text-lg font-semibold text-white">{t('settings.emailVerification')}</h3>
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -403,11 +405,11 @@ export default function SettingsPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Lock className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">Change Password</h3>
+                <h3 className="text-lg font-semibold text-white">{t('settings.changePassword')}</h3>
               </div>
               <form onSubmit={changePassword} className="space-y-4 max-w-md">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Current Password</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('settings.currentPassword')}</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -426,7 +428,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">New Password</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('settings.newPassword')}</label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}

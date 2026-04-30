@@ -1,120 +1,36 @@
 # Copilot Instructions for FlatMate Dashboard
 
-> ⚠️ **Important:** This project uses Next.js 16 with breaking changes from previous versions. APIs, conventions, and file structure may differ from your training data. Consult `node_modules/next/dist/docs/` before making changes.
+> ⚠️ **Important:** This project runs on **Next.js 16** with breaking changes. Before framework-level edits, check the relevant docs in `node_modules/next/dist/docs/`.
 
 ## Build, Test, and Lint Commands
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start development server with Turbopack |
+| `npm install` | Install dependencies |
+| `npm run dev` | Start development server (Turbopack) |
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
+| `npm run lint` | Run ESLint on the project |
+| `npm run lint -- app/dashboard/tasks/page.tsx` | Lint a single file |
 
-**No test framework is configured.** Ask before introducing test dependencies.
-
-## Tech Stack
-
-- **Next.js 16** (App Router)
-- **React 19**
-- **TypeScript 5** (strict mode enabled)
-- **Tailwind CSS v4** — theme tokens defined via `@theme inline` in `app/globals.css`, NOT `tailwind.config.js`
-- **Firebase Firestore** — client-side only (no Auth SDK, no API routes, no server actions)
-- **Framer Motion** — page transitions, card animations, mobile sidebar
-- **Lucide React** — icon library
-- **next-themes** — dark/light mode via `app/providers.tsx`
+**Tests:** No test framework is configured in this repository right now, so there is no single-test command yet.
 
 ## High-Level Architecture
 
-This is a **flatmate management dashboard** with client-side Firebase integration:
+- **App shell + providers:** `app/layout.tsx` is the root server layout; it wraps the app with `Providers` (`app/providers.tsx`), which composes `AuthProvider -> NotificationsProvider -> I18nProvider -> ThemeProvider` and mounts the Sonner toaster.
+- **Authentication flow:** Firebase Auth is used. `context/AuthContext.tsx` subscribes to `onAuthStateChanged`, then loads `users/{uid}` from Firestore into `userProfile`. `app/dashboard/layout.tsx` is the route guard and redirects unauthenticated users to `/login`.
+- **Admin bootstrap + roommate lifecycle:** `app/login/page.tsx` supports first-admin setup by checking whether `users` already has records. `app/dashboard/roommates/page.tsx` creates roommate auth accounts via a secondary Firebase app (`Secondary`) and stores profile docs in `users`.
+- **Data layer pattern:** Most feature pages under `app/dashboard/*` read/write Firestore directly from client components (`expenses`, `tasks`, `cleaning`, `settlements`, `recurringExpenses`, `notifications`, `users`). Real-time subscriptions are used where live updates matter (`onSnapshot` in tasks/cleaning/expenses/notifications).
+- **Privileged deletion path:** `app/actions/deleteRoommate.ts` is a server action using `firebase-admin` to delete both Firebase Auth user and Firestore profile; it requires server env vars `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
+- **External data integration:** `app/dashboard/rates/page.tsx` fetches exchange rates from `open.er-api.com`, refreshes every 10 minutes, and falls back to `localStorage` cache on API failure.
 
-- **Authentication:** Custom login page (`app/login/page.tsx`). User identity stored in `localStorage` (not Firebase Auth):
-  ```typescript
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  ```
-- **Data Layer:** Direct Firestore calls from client components. No API routes, no server actions. Common pattern:
-  ```typescript
-  const snap = await getDocs(query(collection(db, 'expenses'), orderBy('createdAt', 'desc')));
-  setExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-  ```
-- **Features:** Rent tracking, expense splitting, cleaning schedules, exchange rates, task manager, roommate profiles — all under `app/dashboard/*`
-- **Layout:** Sidebar and top navigation defined in `app/dashboard/layout.tsx`
-- **Theme:** Managed by `ThemeProvider` in `app/providers.tsx` with `next-themes`
+## Key Conventions
 
-## Code Style Conventions
+- **Import/style conventions (from AGENTS/CLAUDE):** import order is React/Next -> external libs -> relative local imports; use relative imports instead of `@/*`; page components are default-exported named functions (`SomethingPage`).
+- **Client-component convention:** every page/layout except `app/layout.tsx` uses `'use client';` at the top.
+- **Role-based UI and writes:** pages consistently derive permissions from `useAuth()` (`userProfile?.role === 'admin'`) for destructive/admin-only actions; Firestore security rules enforce authenticated access and admin/self constraints on `/users`.
+- **Date storage format:** business records commonly store dates as ISO strings (`YYYY-MM-DD`) and query/filter by string ranges (for example monthly filters in balances/expenses).
+- **State persistence keys:** shared UI preferences are persisted under fixed keys (`flatmate-theme`, `flatmate-language`, `cached_rates`) and should stay stable unless doing a migration.
+- **Styling pattern:** Tailwind v4 utility classes are primary; `fm-` prefixed classes from `app/globals.css` are also used for common UI primitives. Brand accent is `#1D9E75`.
 
-### Import Order & Style
-
-1. React/Next.js imports
-2. External libraries
-3. Local/relative imports (use **relative paths**, NOT `@/*` alias)
-
-```typescript
-'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { db } from '../../lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
-import { motion } from 'framer-motion';
-import { Plus, Trash2 } from 'lucide-react';
-```
-
-- Multi-line imports: one item per line with trailing commas
-- **Named imports only** for libraries; default exports only for page components
-
-### Components & File Structure
-
-- **Every page/layout** (except `app/layout.tsx`) must start with `'use client';` directive (single quotes)
-- Page components: `export default function ExpensesPage() { ... }` (PascalCase + `Page` suffix)
-- **No `components/` directory** — all UI is inline in page/layout files
-- Helper components may be defined inline as non-exported functions
-
-### TypeScript
-
-- `strict: true` is enforced
-- **Avoid `any`** — define proper interfaces at the top of files:
-  ```typescript
-  interface Expense {
-    id: string;
-    amount: number;
-    category: string;
-    date: string;
-  }
-  ```
-- Use `React.FormEvent`, `React.ReactNode` explicitly
-- Prefer optional chaining (`?.`) and nullish coalescing (`??`)
-
-### Naming Conventions
-
-| Kind | Convention | Example |
-|---|---|---|
-| Page components | PascalCase + `Page` | `ExpensesPage` |
-| Layouts | PascalCase | `RootLayout`, `DashboardLayout` |
-| Variables/functions | camelCase | `fetchExpenses`, `handleSubmit` |
-| Constants/config | UPPER_SNAKE_CASE | `CATEGORIES`, `CURRENCIES` |
-
-### Tailwind CSS & Styling
-
-- **Tailwind v4:** Theme defined in `app/globals.css` via `@theme inline`, not in config file
-- Two styling approaches coexist:
-  1. **Inline Tailwind utilities** (preferred for layout/spacing)
-  2. **`fm-` prefixed classes** (for buttons, inputs, cards)
-- Dark mode: use `dark:` prefix; custom variant is `&:where(.dark, .dark *)`
-- Brand color: `#1D9E75` (also `var(--color-accent)`)
-- Arbitrary values allowed: `bg-[#1D9E75]/10`, `border-white/[0.06]`
-
-### Error Handling
-
-- Use try/catch with meaningful messages (don't swallow error variables)
-- Show errors inline via component state (no toast library)
-- Guard clauses for validation: `if (!name.trim() || !user) return;`
-
-### Animations
-
-- **Framer Motion** for: page transitions, card hovers, staggered lists, mobile sidebar
-- CSS animation classes available in `globals.css`: `animate-fade-in`, `animate-slide-down`, `stagger-1` through `stagger-4`
-- Use `as const` for easing arrays: `ease: [0.25, 0.1, 0.25, 1] as const`
-
----
-
-For comprehensive style guide, see `AGENTS.md`.
+For deeper project conventions, also read `AGENTS.md`, `CLAUDE.md`, and `README.md`.

@@ -1,14 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import { db } from '../../../lib/firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, getDocs, where } from 'firebase/firestore';
-import { Trash2, Repeat, Plus, X, Calendar, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { Spinner } from '../../components/Spinner';
-import { Skeleton, SkeletonList } from '../../components/Skeleton';
-import { EmptyState } from '../../components/EmptyState';
+import { Trash2, Repeat, Plus, X, Calendar, ChevronDown, ChevronUp, RefreshCw, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../../context/AuthContext';
+import { exportExpensesToCSV } from '../../../lib/export';
+import { useI18n } from '../../../context/I18nContext';
+import { useNotifications } from '../../../context/NotificationsContext';
 
 interface Expense {
   id: string;
@@ -58,7 +58,7 @@ function generateRecurringDates(startDate: string, pattern: 'monthly' | 'weekly'
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : new Date(start.getFullYear() + 2, 11, 31);
   
-  let current = new Date(start);
+  const current = new Date(start);
   
   while (current <= end && dates.length < limit) {
     dates.push(current.toISOString().slice(0, 10));
@@ -77,6 +77,8 @@ function generateRecurringDates(startDate: string, pattern: 'monthly' | 'weekly'
 
 export default function ExpensesPage() {
   const { userProfile } = useAuth();
+  const { t } = useI18n();
+  const { createNotification } = useNotifications();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [amount, setAmount] = useState('');
@@ -85,6 +87,7 @@ export default function ExpensesPage() {
   const [note, setNote] = useState('');
   const [filter, setFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: (() => void) | null, message: string}>({isOpen: false, action: null, message: ''});
   const [selectedMonth, setSelectedMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
 
   // Recurring expense state
@@ -92,7 +95,16 @@ export default function ExpensesPage() {
   const [recurrencePattern, setRecurrencePattern] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
   const [showRecurringSection, setShowRecurringSection] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+
+  const loadRecurringExpenses = async () => {
+    try {
+      const q = query(collection(db, 'recurringExpenses'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setRecurringExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringExpense)));
+    } catch (error) {
+      console.error('Failed to load recurring expenses:', error);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'expenses'), orderBy('date', 'desc'));
@@ -111,27 +123,21 @@ export default function ExpensesPage() {
     );
     
     // Load recurring expenses
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRecurringExpenses();
     
     return () => unsubscribe();
   }, []);
 
-  const loadRecurringExpenses = async () => {
-    try {
-      const q = query(collection(db, 'recurringExpenses'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setRecurringExpenses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringExpense)));
-    } catch (error) {
-      console.error('Failed to load recurring expenses:', error);
-    }
-  };
+
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !category || !date) return;
-    setSubmitting(true);
+    
     try {
       if (isRecurring) {
+        // Create recurring expense template
         const recurringData = {
           amount: Number(amount),
           category,
@@ -146,6 +152,7 @@ export default function ExpensesPage() {
         
         const recurringRef = await addDoc(collection(db, 'recurringExpenses'), recurringData);
         
+        // Generate and create all instances
         const dates = generateRecurringDates(date, recurrencePattern, recurrenceEndDate || undefined);
         const batchPromises = dates.map(d => 
           addDoc(collection(db, 'expenses'), {
@@ -164,10 +171,13 @@ export default function ExpensesPage() {
         await Promise.all(batchPromises);
         toast.success(`Recurring ${recurrencePattern} expense created with ${dates.length} instances`);
         
+        // Reset recurring state
         setIsRecurring(false);
         setRecurrenceEndDate('');
-        loadRecurringExpenses();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecurringExpenses();
       } else {
+        // Create single expense
         await addDoc(collection(db, 'expenses'), {
           amount: Number(amount),
           category,
@@ -176,18 +186,31 @@ export default function ExpensesPage() {
           note,
           isRecurring: false,
         });
-        toast.success('Expense added successfully');
+        toast.success('Expense added');
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.docs.forEach(async (userDoc) => {
+          if (userDoc.id !== userProfile?.uid) {
+            await createNotification({
+              userId: userDoc.id,
+              title: t('expense.newExpenseAdded') || 'New expense added',
+              message: `${userProfile?.name || userProfile?.username} added ${Number(amount).toLocaleString()} UZS for ${category}`,
+              type: 'expense',
+              read: false,
+              link: '/dashboard/expenses',
+            });
+          }
+        });
+  
       }
       
+      // Reset form
       setAmount('');
       setCategory('Rent');
       setDate(new Date().toISOString().slice(0, 10));
       setNote('');
     } catch (error) {
       console.error('Failed to add expense:', error);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+      toast.error('Failed to add expense');
     }
   };
 
@@ -205,7 +228,8 @@ export default function ExpensesPage() {
       await Promise.all(relatedExpenses.map(e => deleteDoc(doc(db, 'expenses', e.id))));
       
       toast.success('Recurring expense deleted');
-      loadRecurringExpenses();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecurringExpenses();
     } catch (error) {
       console.error('Failed to delete recurring expense:', error);
       toast.error('Failed to delete recurring expense');
@@ -239,10 +263,18 @@ export default function ExpensesPage() {
 
   return (
     <div className="min-h-screen">
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={t('common.confirm') || 'Confirm'}
+        message={confirmModal.message}
+        confirmLabel={t('common.delete') || 'Delete'}
+        onConfirm={() => confirmModal.action?.()}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Summary Card */}
-        <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">{selectedMonth}</h3>
+        <div className="bg-[#1a1d27] border border-white/[0.06] border border-white/[0.06] rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 text-white">{selectedMonth}</h3>
           <div className="space-y-3">
             {summary.map((cat) => (
               <div key={cat.name} className="flex items-center gap-4">
@@ -255,7 +287,7 @@ export default function ExpensesPage() {
                     style={{ width: `${(cat.total / maxTotal) * 100}%`, minWidth: cat.total ? 24 : 2 }}
                   ></div>
                 </div>
-                <span className="ml-2 text-[#0a0a0a] dark:text-gray-100 font-semibold min-w-[100px] text-right text-sm">
+                <span className="ml-2 text-white font-semibold min-w-[100px] text-right text-sm">
                   {cat.total.toLocaleString()} UZS
                 </span>
               </div>
@@ -264,56 +296,54 @@ export default function ExpensesPage() {
         </div>
 
         {/* Add Expense Form */}
-        <form onSubmit={handleAdd} className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">Add expense</h3>
+        <form onSubmit={handleAdd} className="bg-[#1a1d27] border border-white/[0.06] border border-white/[0.06] rounded-xl p-6">
+          <h3 className="text-lg font-semibold mb-4 text-white">Add expense</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Amount (UZS)</label>
+              <label className="block text-sm text-gray-400 mb-2">Amount (UZS)</label>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 required
                 min="1"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Category</label>
+              <label className="block text-sm text-gray-400 mb-2">{t('expenses.category')}</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 required
               >
                 {CATEGORIES.map((cat) => (
-                  <option key={cat.name} value={cat.name}>
+                  <option className="bg-[#1a1d27]" key={cat.name} value={cat.name}>
                     {cat.name}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Date</label>
+              <label className="block text-sm text-gray-400 mb-2">{t('expenses.date')}</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Note</label>
+              <label className="block text-sm text-gray-400 mb-2">{t('expenses.note')}</label>
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                maxLength={100}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                 placeholder="Optional"
               />
-              <div className="text-right text-xs text-gray-400 mt-1">{note.length}/100</div>
             </div>
           </div>
           
@@ -325,7 +355,7 @@ export default function ExpensesPage() {
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isRecurring
                   ? 'bg-[#1D9E75]/20 text-[#1D9E75] border border-[#1D9E75]/30'
-                  : 'bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  : 'bg-white/[0.08] text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               <Repeat className="w-4 h-4" />
@@ -338,19 +368,19 @@ export default function ExpensesPage() {
             <div className="mt-4 p-4 bg-[#1D9E75]/5 border border-[#1D9E75]/20 rounded-lg animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Repeat Pattern</label>
+                  <label className="block text-sm text-gray-400 mb-2">Repeat Pattern</label>
                   <select
                     value={recurrencePattern}
                     onChange={(e) => setRecurrencePattern(e.target.value as 'monthly' | 'weekly' | 'yearly')}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                   >
-                    <option value="monthly">Monthly (e.g., Rent)</option>
-                    <option value="weekly">Weekly (e.g., Groceries)</option>
-                    <option value="yearly">Yearly</option>
+                    <option className="bg-[#1a1d27]" value="monthly">Monthly (e.g., Rent)</option>
+                    <option className="bg-[#1a1d27]" value="weekly">Weekly (e.g., Groceries)</option>
+                    <option className="bg-[#1a1d27]" value="yearly">Yearly</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">
+                  <label className="block text-sm text-gray-400 mb-2">
                     End Date (Optional)
                     <span className="text-xs text-gray-400 ml-1">- Leave empty for no end</span>
                   </label>
@@ -359,7 +389,7 @@ export default function ExpensesPage() {
                     value={recurrenceEndDate}
                     onChange={(e) => setRecurrenceEndDate(e.target.value)}
                     min={date}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
@@ -374,10 +404,8 @@ export default function ExpensesPage() {
           
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full mt-4 bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
+            className="w-full mt-4 bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition"
           >
-            {submitting && <Spinner />}
             {isRecurring ? `Create Recurring ${recurrencePattern} Expense` : 'Add Expense'}
           </button>
         </form>
@@ -444,9 +472,9 @@ export default function ExpensesPage() {
         )}
 
         {/* Transactions Card */}
-        <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
+        <div className="bg-[#1a1d27] border border-white/[0.06] border border-white/[0.06] rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-[#0a0a0a] dark:text-gray-100">Transactions</h3>
+            <h3 className="text-lg font-semibold text-white">{t('expenses.transactions')}</h3>
           </div>
 
           {/* Filter Buttons */}
@@ -455,7 +483,7 @@ export default function ExpensesPage() {
               className={`px-3 py-1.5 text-sm font-medium rounded-full transition ${
                 filter === 'All'
                   ? 'bg-[#1D9E75] text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  : 'bg-white/[0.08] text-[#6b7280] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
               onClick={() => setFilter('All')}
             >
@@ -467,7 +495,7 @@ export default function ExpensesPage() {
                 className={`px-3 py-1.5 text-sm font-medium rounded-full transition ${
                   filter === cat.name
                     ? cat.color + ' text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-white/[0.08] text-[#6b7280] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
                 onClick={() => setFilter(cat.name)}
               >
@@ -478,55 +506,70 @@ export default function ExpensesPage() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="ml-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+              className="ml-auto bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
             />
+          <button
+              onClick={() => exportExpensesToCSV(filtered, `flatmate-expenses-${selectedMonth}.csv`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white/[0.05] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-3"
+            >
+              <Download className="w-4 h-4" />
+              {t('expenses.exportCSV') || 'Export CSV'}
+            </button>
           </div>
+
 
           {/* Transaction List */}
           <div className="space-y-0">
             {loading ? (
-              <SkeletonList rows={4} />
+              <>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="py-4 border-b border-white/[0.05] animate-pulse">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
             ) : filtered.length === 0 ? (
-              <EmptyState
-                emoji="📊"
-                title="No expenses yet"
-                description="Split your first cost with your flatmates"
-                action={{
-                  label: 'Add Expense',
-                  onClick: () => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }),
-                }}
-              />
+              <div className="py-8 text-center text-gray-400 text-sm">No expenses found.</div>
             ) : (
               filtered.map((e, i) => {
                 const isLast = i === filtered.length - 1;
                 return (
-                  <motion.div
+                  <div
                     key={e.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: i * 0.04 }}
                     className={`flex items-center justify-between py-4 ${
-                      !isLast ? 'border-b border-[#f3f4f6] dark:border-gray-700' : ''
+                      !isLast ? 'border-b border-white/[0.05]' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-sm text-[#6b7280] dark:text-gray-400 min-w-[80px]">{e.date}</div>
+                      <div className="text-sm text-gray-400 min-w-[80px]">{e.date}</div>
                       <span className={`px-2 py-0.5 rounded text-xs font-semibold text-white ${getCategoryColor(e.category)}`}>
                         {e.category}
                       </span>
-{e.isRecurring && (
-                      <Repeat className="w-3 h-3 text-[#1D9E75]" />
-                    )}
+                      {e.isRecurring && (
+                        <span title="Recurring expense"><Repeat className="w-3 h-3 text-[#1D9E75]" /></span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="font-semibold text-[#0a0a0a] dark:text-gray-100">
+                      <div className="font-semibold text-white">
                         {Number(e.amount).toLocaleString()} UZS
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#1D9E75] flex items-center justify-center text-white text-xs font-semibold">
                           {e.paidBy?.charAt(0)?.toUpperCase() || '?'}
                         </div>
-                        <div className="text-sm text-[#6b7280] dark:text-gray-400">{e.note || ''}</div>
+                        <div className="text-sm text-gray-400">{e.note || ''}</div>
                       </div>
                       {isAdmin && (
                         <button
@@ -538,7 +581,7 @@ export default function ExpensesPage() {
                         </button>
                       )}
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })
             )}

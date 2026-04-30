@@ -23,7 +23,7 @@ const typeColors = {
 
 export default function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -127,7 +127,7 @@ export default function NotificationsDropdown() {
                     <Bell className="w-10 h-10 text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-500 text-sm">No notifications yet</p>
                     <p className="text-gray-600 text-xs mt-1">
-                      We'll notify you about tasks, expenses, and more
+                      We&apos;ll notify you about tasks, expenses, and more
                     </p>
                   </div>
                 ) : (
@@ -175,10 +175,16 @@ export default function NotificationsDropdown() {
 
               {/* Footer */}
               {notifications.length > 0 && (
-                <div className="px-4 py-2 border-t border-white/10 text-center">
+                <div className="px-4 py-2 border-t border-white/10 flex items-center justify-between">
                   <span className="text-xs text-gray-500">
                     {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
                   </span>
+                  <button
+                    onClick={clearAll}
+                    className="text-xs text-red-400 hover:text-red-300 hover:bg-red-400/10 px-2 py-1 rounded transition-colors"
+                  >
+                    Clear All
+                  </button>
                 </div>
               )}
             </motion.div>
