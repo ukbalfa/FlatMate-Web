@@ -1,55 +1,22 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# FlatMate Dashboard - Agent Instructions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This file contains high-signal, repo-specific instructions to help AI agents work effectively in this repository.
 
-# AGENTS.md — FlatMate Dashboard (compact)
+## Architecture & Data Flow
+- **Next.js 16 (App Router)**: Core framework. Ensure all routing follows the App Router (`app/` directory) conventions.
+- **Client-Side Auth**: Authentication is non-standard. It verifies credentials against the Firestore `users` collection and stores the session in `localStorage` under the key `"user"`. Protected pages must read `localStorage` on mount and redirect to `/login` if absent. Role-based UI is controlled via the `role` field (`admin` vs `roommate`).
+- **Firebase / Firestore**: Client components use Firebase 12 SDK for real-time data (`onSnapshot` / `getDocs`). Privileged operations use `firebase-admin` via Next.js Server Actions (located in `app/actions/`).
+- **External APIs**: Live exchange rates are polled from `open.er-api.com`.
 
-## Commands
-- `npm run dev` Start Turbopack dev server (run from repository root).
-- `npm run build` Production build.
-- `npm run start` Start production server.
-- `npm run lint` Run ESLint (run before committing).
+## Styling & Theming
+- **Tailwind CSS v4**: Theme tokens are defined via `@theme inline` in `app/globals.css`.
+- **Brand Accent**: `#1D9E75` (`var(--color-accent)`).
+- **Dark/Light Mode**: Managed by `next-themes` via the `ThemeProvider` in `app/providers.tsx`.
+- **Animations**: Use Framer Motion for complex transitions/interactions and CSS helper classes (e.g., `animate-fade-in`, `stagger-1`) defined in `globals.css` for simpler cases.
 
-## Tech Stack
-- Next.js 16 (App Router) – client‑only.
-- React 19, TypeScript 5 (strict).
-- Tailwind CSS v4 with `@theme` tokens in `app/globals.css`.
-- Framer Motion, Lucide React, next‑themes, Sonner toast.
-- Firebase Firestore + client‑side Firebase Auth.
+## Workflow & Commands
+- **Linting**: Run `npm run lint` before committing changes to ensure ESLint checks pass.
+- **Build**: Run `npm run build` to verify the production build compiles successfully. There are no automated test scripts (`npm test`) configured.
 
-## Project Conventions (high‑signal)
-- **No `components/` directory** – all UI lives inline in page or layout files.
-- **Every file that renders UI (except `app/layout.tsx`) must begin with `'use client';`.** This makes it a client component; the app uses no server components.
-- **Pages** are default‑exported named functions: `export default function FooPage() {}`. Names use PascalCase + `Page` suffix.
-- **Import order** 1) React/Next, 2) external libs, 3) relative paths. Use named imports; only page components use default export. Use relative paths (`../../lib/firebase`); never the `@/*` alias defined in `tsconfig.json`.
-- **Multi‑line imports** list one identifier per line, trailing commas.
-- **Naming**: constants `UPPER_SNAKE_CASE`, helpers `PascalCase`, variables/functions `camelCase`.
-- **TypeScript**: `strict:true`; avoid `any`; define interfaces at the top of the file.
-- **Tailwind**: Theme tokens are defined via `@theme` in `app/globals.css` (not in `tailwind.config.js`). Use `fm-` prefixed utility classes for buttons, inputs, cards. Brand color = `#1D9E75` (`var(--color-accent)`). Dark mode via `dark:` prefix and custom variant `&:where(.dark, .dark *)`.
-- **Firebase**: All data accessed directly from the client with Firestore SDK. Use `onSnapshot` for real‑time collections (`expenses`, `cleaning`, `tasks`, `announcements`). `users` collection uses one‑time `getDocs`. Auth state via `useAuth()` (AuthContext). Guard admin UI with `user?.role === 'admin'`.
-- **UI libraries**: Use Framer Motion for animations, Lucide React for icons, Sonner (`toast.success()`, `toast.error()`, `toast.warning()`) for user feedback.
-- **Linting**: Run `npm run lint` before committing; ESLint config is strict.
-- **Git & security**: Never commit `.env*` files. Do not modify `lib/firebase.ts` or Firebase config without approval. Do not add a `components/` directory, server‑side code (API routes, server actions), or new npm packages without explicit request.
-- **Testing**: No test framework configured; do not add test files unless asked.
-- **Environment variables** (required in `.env.local`):
-  - `NEXT_PUBLIC_FIREBASE_API_KEY`
-  - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-  - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-  - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-  - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-  - `NEXT_PUBLIC_FIREBASE_APP_ID`
-- **Always** test UI in both light and dark mode (theme toggle is present in `app/dashboard/layout.tsx`).
-
-## Safety Checklist (quick reference)
-- ✅ `'use client';` at top of every page/layout (except root layout).
-- ✅ No `components/` folder; UI inline.
-- ✅ Import order & relative paths.
-- ✅ Use Sonner for toast notifications.
-- ✅ Guard admin UI with `user?.role === 'admin'`.
-- ✅ Run `npm run lint` before push.
-- ❌ Never commit `.env*`.
-- ❌ Never add server‑side code.
-- ❌ Never use the `@/*` alias.
-- ❌ Never introduce test framework without ask.
+## Environment Variables
+- Firebase configuration goes into `.env.local`. Never commit this file or expose secrets in client code. Server Actions (`firebase-admin`) should rely on server-side environment configurations.
