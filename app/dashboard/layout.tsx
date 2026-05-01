@@ -12,7 +12,6 @@ import {
   CheckSquare,
   Users,
   Menu,
-  Bell,
   LogOut,
   Sun,
   Moon,
@@ -22,7 +21,6 @@ import {
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
-import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import NotificationsDropdown from '../components/NotificationsDropdown';
 import { useI18n } from '../../context/I18nContext';

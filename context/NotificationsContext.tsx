@@ -9,10 +9,8 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
@@ -33,7 +31,6 @@ interface NotificationsContextType {
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  clearAll: () => Promise<void>;
   createNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
 }
 
@@ -42,7 +39,6 @@ const NotificationsContext = createContext<NotificationsContextType>({
   unreadCount: 0,
   markAsRead: async () => {},
   markAllAsRead: async () => {},
-  clearAll: async () => {},
   createNotification: async () => {},
 });
 
@@ -52,14 +48,17 @@ export function useNotifications() {
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { userProfile } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsState, setNotificationsState] = useState<{
+    uid: string | null;
+    items: Notification[];
+  }>({ uid: null, items: [] });
 
   useEffect(() => {
     if (!userProfile?.uid) {
-      // eslint-disable-next-line
-      setNotifications([]);
       return;
     }
+
+    const uid = userProfile.uid;
 
     const q = query(
       collection(db, 'notifications'),
@@ -74,7 +73,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           id: doc.id,
           ...doc.data(),
         })) as Notification[];
-        setNotifications(data);
+        setNotificationsState({ uid, items: data });
       },
       (error) => {
         console.error('Failed to load notifications:', error);
@@ -96,7 +95,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
 
   const markAllAsRead = async () => {
-    const unreadNotifications = notifications.filter((n) => !n.read);
+    const unreadNotifications = activeNotifications.filter((n) => !n.read);
     try {
       await Promise.all(
         unreadNotifications.map((n) =>
@@ -108,19 +107,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       );
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
-    }
-  };
-
-  
-  const clearAll = async () => {
-    try {
-      await Promise.all(
-        notifications.map((n) => deleteDoc(doc(db, 'notifications', n.id)))
-      );
-      // eslint-disable-next-line
-      setNotifications([]);
-    } catch (error) {
-      console.error('Failed to clear notifications:', error);
     }
   };
 
@@ -137,16 +123,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const activeNotifications =
+    userProfile?.uid && userProfile.uid === notificationsState.uid
+      ? notificationsState.items
+      : [];
+  const unreadCount = activeNotifications.filter((n) => !n.read).length;
 
   return (
     <NotificationsContext.Provider
       value={{
-        notifications,
+        notifications: activeNotifications,
         unreadCount,
         markAsRead,
         markAllAsRead,
-        clearAll,
         createNotification,
       }}
     >

@@ -1,27 +1,25 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '../../lib/firebase';
 import {
   collection,
   getDocs,
-  onSnapshot,
   query,
   orderBy,
   limit,
   where,
 } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
-import { useI18n } from '../../context/I18nContext';
 import Link from 'next/link';
+import { SkeletonCard } from '../components/Skeleton';
+import { EmptyState } from '../components/EmptyState';
 import {
   Receipt,
   CheckSquare,
   Sparkles,
   TrendingUp,
-  TrendingDown,
-  AlertCircle,
-  Calendar,
   Clock,
   Users,
   ArrowRight,
@@ -75,78 +73,31 @@ interface ActivityItem {
   user?: string;
 }
 
+function getMonday(d: Date) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString().slice(0, 10);
+}
+
 export default function DashboardPage() {
   const { userProfile } = useAuth();
-  const { t } = useI18n();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(() => {
+  const [currentMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  useEffect(() => {
-    const currentDate = new Date();
-    const weekStart = getMonday(currentDate);
-    
-    setLoading(true);
-
-    let expensesUnsub = () => {};
-    let tasksUnsub = () => {};
-    let cleaningUnsub = () => {};
-    let usersUnsub = () => {};
-
-    // Initial fetch of users to render everything properly
-    getDocs(collection(db, 'users')).then((usersSnap) => {
-      const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-      setUsers(usersData);
-
-      // Listeners
-      expensesUnsub = onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc'), limit(50)), (snap) => {
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-        setExpenses(data);
-      });
-
-      tasksUnsub = onSnapshot(query(collection(db, 'tasks'), orderBy('dueDate')), (snap) => {
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-        setTasks(data);
-      });
-
-      cleaningUnsub = onSnapshot(query(collection(db, 'cleaning'), where('weekStart', '==', weekStart)), (snap) => {
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CleaningTask));
-        setCleaningTasks(data);
-      });
-      
-      usersUnsub = onSnapshot(collection(db, 'users'), (snap) => {
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-        setUsers(data);
-      });
-      
-      setLoading(false);
-    });
-
-    return () => {
-      expensesUnsub();
-      tasksUnsub();
-      cleaningUnsub();
-      usersUnsub();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    generateActivityFeed(expenses, tasks, users);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, tasks, users]);
-
-  const generateActivityFeed = (
+  const generateActivityFeed = useCallback((
     expensesData: Expense[],
-    tasksData: Task[],
-    usersData: User[]
+    tasksData: Task[]
   ) => {
     const activities: ActivityItem[] = [];
 
@@ -191,16 +142,56 @@ export default function DashboardPage() {
     );
 
     setActivities(activities.slice(0, 15));
-  };
+  }, []);
 
-  function getMonday(d: Date) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    date.setDate(diff);
-    date.setHours(0, 0, 0, 0);
-    return date.toISOString().slice(0, 10);
-  }
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const currentDate = new Date();
+      const weekStart = getMonday(currentDate);
+
+      const [expensesSnap, tasksSnap, cleaningSnap, usersSnap] = await Promise.all([
+        getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc'), limit(50))),
+        getDocs(query(collection(db, 'tasks'), orderBy('dueDate'))),
+        getDocs(
+          query(
+            collection(db, 'cleaning'),
+            where('weekStart', '==', weekStart)
+          )
+        ),
+        getDocs(collection(db, 'users')),
+      ]);
+
+      const expensesData = expensesSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Expense)
+      );
+      const tasksData = tasksSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Task)
+      );
+      const cleaningData = cleaningSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as CleaningTask)
+      );
+      const usersData = usersSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as User)
+      );
+
+      setExpenses(expensesData);
+      setTasks(tasksData);
+      setCleaningTasks(cleaningData);
+      setUsers(usersData);
+
+      generateActivityFeed(expensesData, tasksData);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast.error('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [generateActivityFeed]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   // Calculate stats
   const monthExpenses = expenses.filter((e) => e.date.startsWith(currentMonth));
@@ -218,9 +209,6 @@ export default function DashboardPage() {
   const overdueTasks = myTasks.filter(
     (t) => new Date(t.dueDate) < new Date(new Date().toISOString().slice(0, 10))
   );
-  const upcomingTasks = myTasks.filter(
-    (t) => new Date(t.dueDate) >= new Date(new Date().toISOString().slice(0, 10))
-  );
 
   const myCleaning = cleaningTasks.filter(
     (c) => c.assignedTo === userProfile?.username && !c.done
@@ -228,15 +216,6 @@ export default function DashboardPage() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   const todaysCleaning = myCleaning.filter((c) => c.dayOfWeek === today);
 
-  const getUserColor = (username: string) => {
-    const user = users.find((u) => u.username === username);
-    return user?.color || '#1D9E75';
-  };
-
-  const getUserName = (username: string) => {
-    const user = users.find((u) => u.username === username);
-    return user?.name || username;
-  };
 
   const formatTimeAgo = (date: string) => {
     const now = new Date();
@@ -254,15 +233,15 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: t('dashboard.monthlyOverview'),
+      title: 'This Month',
       value: totalMonthExpenses.toLocaleString() + ' UZS',
-      subtitle: t('dashboard.totalExpenses'),
+      subtitle: 'Total expenses',
       icon: Wallet,
       color: 'bg-[#1D9E75]',
-      trend: myMonthExpenses > 0 ? t('dashboard.yourContribution') + ': ' + myMonthExpenses.toLocaleString() : null,
+      trend: myMonthExpenses > 0 ? 'You paid ' + myMonthExpenses.toLocaleString() : null,
     },
     {
-      title: t('dashboard.myTasks'),
+      title: 'My Tasks',
       value: myTasks.length.toString(),
       subtitle: `${overdueTasks.length} overdue`,
       icon: CheckSquare,
@@ -270,7 +249,7 @@ export default function DashboardPage() {
       alert: overdueTasks.length > 0,
     },
     {
-      title: t('nav.cleaning'),
+      title: 'Cleaning',
       value: myCleaning.length.toString(),
       subtitle: todaysCleaning.length > 0 ? `${todaysCleaning.length} today` : 'This week',
       icon: Sparkles,
@@ -278,7 +257,7 @@ export default function DashboardPage() {
       alert: todaysCleaning.length > 0,
     },
     {
-      title: t('nav.roommates'),
+      title: 'Roommates',
       value: users.length.toString(),
       subtitle: 'Active members',
       icon: Users,
@@ -296,13 +275,36 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-bold text-white"
           >
-            {t('dashboard.welcome')}, {userProfile?.name || userProfile?.username}!
+            Welcome back, {userProfile?.name || userProfile?.username}!
           </motion.h1>
           <p className="text-gray-400 mt-2">
             Here&apos;s what&apos;s happening with your flat this month
           </p>
         </div>
 
+        {loading ? (
+          <div className="space-y-6">
+            {/* Stats skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+            {/* Content skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+              <div className="space-y-6">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
@@ -310,8 +312,9 @@ export default function DashboardPage() {
               key={stat.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors"
+              whileHover={{ scale: 1.02 }}
+              transition={{ delay: index * 0.1, duration: 0.2 }}
+              className="bg-[#1a1d27] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between">
                 <div>
@@ -338,33 +341,33 @@ export default function DashboardPage() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - {t('dashboard.quickActions')} & Activity */}
+          {/* Left Column - Quick Actions & Activity */}
           <div className="lg:col-span-2 space-y-6">
-            {/* {t('dashboard.quickActions')} */}
+            {/* Quick Actions */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">{t('dashboard.quickActions')}</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   {
-                    label: t('expenses.addExpense'),
+                    label: 'Add Expense',
                     href: '/dashboard/expenses',
                     icon: Receipt,
                     color: 'bg-[#1D9E75]',
                   },
                   {
-                    label: t('tasks.addTask'),
+                    label: 'Add Task',
                     href: '/dashboard/tasks',
                     icon: CheckSquare,
                     color: 'bg-blue-500',
                   },
                   {
-                    label: t('balances.title'),
+                    label: 'View Balances',
                     href: '/dashboard/balances',
                     icon: Wallet,
                     color: 'bg-amber-500',
                   },
                   {
-                    label: t('rates.title'),
+                    label: 'Exchange Rates',
                     href: '/dashboard/rates',
                     icon: TrendingUp,
                     color: 'bg-purple-500',
@@ -391,13 +394,13 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-[#1D9E75]" />
-                  {t('dashboard.recentActivity')}
+                  Recent Activity
                 </h2>
                 <Link
                   href="/dashboard/expenses"
                   className="text-sm text-[#1D9E75] hover:text-[#188a65] flex items-center gap-1"
                 >
-                  {t('dashboard.viewAllExpenses')} <ArrowRight className="w-4 h-4" />
+                  View all <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
 
@@ -408,9 +411,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : activities.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No recent activity
-                </div>
+                <EmptyState
+                  emoji="🔔"
+                  title="No recent activity"
+                  description="Activity from expenses, tasks, and settlements will appear here"
+                />
               ) : (
                 <div className="space-y-3">
                   {activities.map((activity, index) => (
@@ -462,17 +467,20 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-500" />{t('dashboard.myTasks')}</h2>
+                  <Clock className="w-5 h-5 text-blue-500" />
+                  My Tasks
+                </h2>
                 <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-medium">
                   {myTasks.length} pending
                 </span>
               </div>
 
               {myTasks.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  <CheckSquare className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">All caught up!</p>
-                </div>
+                <EmptyState
+                  icon={<CheckSquare className="w-8 h-8" />}
+                  title="All caught up!"
+                  description="You have no pending tasks right now. Enjoy the peace."
+                />
               ) : (
                 <div className="space-y-3">
                   {myTasks.slice(0, 5).map((task) => {
@@ -531,17 +539,20 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />{t('dashboard.myCleaning')}</h2>
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  My Cleaning
+                </h2>
                 <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
                   {myCleaning.length} tasks
                 </span>
               </div>
 
               {myCleaning.length === 0 ? (
-                <div className="text-center py-6 text-gray-500">
-                  <Sparkles className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No cleaning tasks this week</p>
-                </div>
+                <EmptyState
+                  icon={<Sparkles className="w-8 h-8" />}
+                  title="No cleaning tasks"
+                  description="You have no cleaning duties this week. Enjoy!"
+                />
               ) : (
                 <div className="space-y-3">
                   {myCleaning.map((task) => (
@@ -578,11 +589,13 @@ export default function DashboardPage() {
             {/* Monthly Summary */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-purple-500" />{t('dashboard.monthlyOverview')}</h2>
+                <TrendingUp className="w-5 h-5 text-purple-500" />
+                Monthly Overview
+              </h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">{t('dashboard.yourContribution')}</span>
+                    <span className="text-gray-400">Your contribution</span>
                     <span className="text-white">
                       {((myMonthExpenses / (totalMonthExpenses || 1)) * 100).toFixed(
                         0
@@ -612,22 +625,24 @@ export default function DashboardPage() {
                     href="/dashboard/expenses"
                     className="flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors"
                   >
-                    <span>{t('dashboard.viewAllExpenses')} expenses</span>
+                    <span>View all expenses</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <Link
                     href="/dashboard/balances"
                     className="flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors mt-3"
                   >
-                    <span>{t('dashboard.checkWhoOwes')}</span>
+                    <span>Check who owes whom</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
               </div>
             </div>
+            </div>
           </div>
+        </>
+        )}
         </div>
       </div>
-    </div>
   );
 }

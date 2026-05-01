@@ -1,12 +1,17 @@
 'use client';
-import { useI18n } from '../../../context/I18nContext';
-import { useNotifications } from '../../../context/NotificationsContext';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs, query, where, addDoc, deleteDoc, doc, updateDoc,  } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  addDoc,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { toast } from 'sonner';
-import ConfirmModal from '../../components/ConfirmModal';
 import { useAuth } from '../../../context/AuthContext';
 import { Spinner } from '../../components/Spinner';
 import { SkeletonTable } from '../../components/Skeleton';
@@ -18,11 +23,8 @@ import {
   Plus,
   X,
   User,
-  TrendingUp,
-  TrendingDown,
   Minus,
   Calendar,
-  Info,
 } from 'lucide-react';
 
 interface User {
@@ -62,14 +64,11 @@ interface Balance {
 }
 
 export default function BalancesPage() {
-  const { t } = useI18n();
-  const { createNotification } = useNotifications();
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: (() => void) | null, message: string}>({isOpen: false, action: null, message: ''});
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -83,11 +82,7 @@ export default function BalancesPage() {
   });
   const [submittingSettlement, setSubmittingSettlement] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [selectedMonth]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Load users
@@ -123,7 +118,11 @@ export default function BalancesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const calculateBalances = (): Balance[] => {
     if (users.length === 0) return [];
@@ -217,20 +216,6 @@ export default function BalancesPage() {
     }
   };
 
-  const completeSettlement = async (id: string) => {
-    try {
-      await updateDoc(doc(db, 'settlements', id), {
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-      });
-      toast.success('Settlement marked as completed');
-      loadData();
-    } catch (error) {
-      console.error('Failed to complete settlement:', error);
-      toast.error('Something went wrong. Please try again.');
-    }
-  };
-
   const deleteSettlement = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this settlement? This cannot be undone.')) return;
     try {
@@ -260,14 +245,6 @@ export default function BalancesPage() {
 
   return (
     <div className="min-h-screen">
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={t('common.confirm') || 'Confirm'}
-        message={confirmModal.message}
-        confirmLabel={t('common.delete') || 'Delete'}
-        onConfirm={() => confirmModal.action?.()}
-        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-      />
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -317,7 +294,7 @@ export default function BalancesPage() {
           <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <ArrowRightLeft className="w-5 h-5 text-amber-500" />
-              <span className="text-gray-400 text-sm">{t('balances.activeDebts')}</span>
+              <span className="text-gray-400 text-sm">Active Debts</span>
             </div>
             <p className="text-2xl font-bold text-white">{debts.length}</p>
           </div>
@@ -330,7 +307,7 @@ export default function BalancesPage() {
             {/* Balances Table */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">{t('balances.memberBalances')}</h2>
+                <h2 className="text-lg font-semibold text-white">Member Balances</h2>
               </div>
               <div className="divide-y divide-white/5">
                 {balances.map((balance) => (
@@ -346,14 +323,7 @@ export default function BalancesPage() {
                         {balance.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="text-white font-medium flex items-center">
-                          {balance.name}
-                          {balance.user === userProfile?.username && (
-                            <span className="bg-teal-500/20 text-teal-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ml-2">
-                              You
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-white font-medium">{balance.name}</p>
                         <p className="text-sm text-gray-500">
                           Paid: {balance.paid.toLocaleString()} UZS
                         </p>
@@ -390,7 +360,7 @@ export default function BalancesPage() {
             {/* Who Owes Who */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">{t('balances.whoOwes')}</h2>
+                <h2 className="text-lg font-semibold text-white">Who Owes Whom</h2>
               </div>
               {debts.length === 0 ? (
                 <EmptyState
@@ -443,7 +413,7 @@ export default function BalancesPage() {
             {/* Settlement History */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">{t('balances.settlementHistory')}</h2>
+                <h2 className="text-lg font-semibold text-white">Settlement History</h2>
               </div>
               {settlements.length === 0 ? (
                 <div className="py-8">

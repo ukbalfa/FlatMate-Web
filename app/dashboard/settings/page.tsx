@@ -1,8 +1,7 @@
 'use client';
-import { useI18n } from '../../../context/I18nContext';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { db, auth } from '../../../lib/firebase';
+import { db } from '../../../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
   updatePassword,
@@ -15,7 +14,6 @@ import { useAuth } from '../../../context/AuthContext';
 import {
   User,
   Lock,
-  Palette,
   Bell,
   Save,
   Eye,
@@ -58,7 +56,6 @@ const NOTIFICATION_PREFS = [
 ];
 
 export default function SettingsPage() {
-  const { t } = useI18n();
   const { userProfile: contextProfile, user: firebaseUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,13 +79,7 @@ export default function SettingsPage() {
     weeklySummary: false,
   });
 
-  useEffect(() => {
-    if (contextProfile?.uid) {
-      loadUserProfile();
-    }
-  }, [contextProfile]);
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     if (!contextProfile?.uid) return;
     try {
       const docRef = doc(db, 'users', contextProfile.uid);
@@ -115,7 +106,13 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contextProfile?.uid]);
+
+  useEffect(() => {
+    if (contextProfile?.uid) {
+      loadUserProfile();
+    }
+  }, [contextProfile?.uid, loadUserProfile]);
 
   const saveProfile = async () => {
     if (!contextProfile?.uid) return;
@@ -211,7 +208,7 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
           <p className="text-gray-400 mt-1">Manage your profile, security, and preferences</p>
         </div>
 
@@ -274,7 +271,7 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('settings.name')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Name</label>
                 <input
                   type="text"
                   value={editForm.name || ''}
@@ -283,7 +280,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('settings.surname')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Surname</label>
                 <input
                   type="text"
                   value={editForm.surname || ''}
@@ -292,7 +289,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('roommates.occupation')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Occupation</label>
                 <input
                   type="text"
                   value={editForm.occupation || ''}
@@ -301,7 +298,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('settings.phone')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Phone</label>
                 <input
                   type="tel"
                   value={editForm.phone || ''}
@@ -310,7 +307,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('settings.telegram')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Telegram</label>
                 <input
                   type="text"
                   value={editForm.telegram || ''}
@@ -320,7 +317,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">{t('settings.instagram')}</label>
+                <label className="block text-sm text-gray-400 mb-2">Instagram</label>
                 <input
                   type="text"
                   value={editForm.instagram || ''}
@@ -373,7 +370,7 @@ export default function SettingsPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Mail className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">{t('settings.emailVerification')}</h3>
+                <h3 className="text-lg font-semibold text-white">Email Verification</h3>
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -405,11 +402,11 @@ export default function SettingsPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Lock className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">{t('settings.changePassword')}</h3>
+                <h3 className="text-lg font-semibold text-white">Change Password</h3>
               </div>
               <form onSubmit={changePassword} className="space-y-4 max-w-md">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">{t('settings.currentPassword')}</label>
+                  <label className="block text-sm text-gray-400 mb-2">Current Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -428,7 +425,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">{t('settings.newPassword')}</label>
+                  <label className="block text-sm text-gray-400 mb-2">New Password</label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
