@@ -8,7 +8,7 @@
 
 <br/>
 
-[![Version](https://img.shields.io/badge/version-1.0.0-1D9E75?style=for-the-badge&logo=github)](https://github.com/ukbalfa/flatmate-dashboard/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-F97316?style=for-the-badge&logo=github)](https://github.com/ukbalfa/FlatMate/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=000)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=fff)](https://www.typescriptlang.org)
@@ -51,7 +51,7 @@
 
 | 🏠 &nbsp;**Dashboard** | 💸 &nbsp;**Expenses** | 🧹 &nbsp;**Cleaning** |
 |:---|:---|:---|
-| Rent countdown, monthly spend overview, live exchange rate ticker, pinned announcements, and real-time activity feed. | Add, categorise, and split shared costs. Real-time monthly summaries keep everyone in the loop. | Admin-curated weekly chore list. Any roommate can mark tasks complete — auto-resets each week. |
+| Rent countdown, monthly spend overview, live exchange rate ticker, pinned announcements, and real-time activity feed. | Add, categorise, and split shared costs. **Recurring expenses** auto-generate monthly. Real-time summaries keep everyone in the loop. | Admin-curated weekly chore list. Any roommate can mark tasks complete — auto-resets each week. |
 
 | ✅ &nbsp;**Tasks** | 👥 &nbsp;**Roommates** | 💱 &nbsp;**Rates** |
 |:---|:---|:---|
@@ -60,6 +60,10 @@
 | ⚖️ &nbsp;**Balances** | 🌙 &nbsp;**Dark Mode** | 📱 &nbsp;**Responsive** |
 |:---|:---|:---|
 | Crystal-clear overview of who owes what across all shared expenses. | Full light/dark theme support via `next-themes`. Persisted across sessions. | Desktop sidebar + mobile overlay navigation — works great on every screen size. |
+
+| 📢 &nbsp;**Announcements** | 🌐 &nbsp;**i18n** |
+|:---|:---|
+| Pin important notices. Anyone can post — admins can pin/delete. | Full 3-language support: English, Русский, O'zbek |
 
 </div>
 
@@ -133,7 +137,7 @@ Browser (React Client Components)
 
 ### Theme & Animation
 
-- **Tailwind v4** — theme tokens defined via `@theme inline` in `app/globals.css`; brand accent `#1D9E75`
+- **Tailwind v4** — theme tokens defined via `@theme inline` in `app/globals.css`; brand accent `#F97316`
 - **next-themes** — `ThemeProvider` in `app/providers.tsx` persists preference; dark mode via `dark:` prefix
 - **Framer Motion** — page transitions, staggered list entries, card hover effects, mobile sidebar slide-in
 - **CSS helpers** — `animate-fade-in`, `animate-slide-down`, `stagger-1`–`stagger-4` in `globals.css`
@@ -154,32 +158,38 @@ flatmate-dashboard/
 │   │   └── page.tsx                # Login + first-admin bootstrap
 │   ├── dashboard/
 │   │   ├── layout.tsx              # Sidebar + topbar + theme toggle (route guard)
-│   │   ├── page.tsx                # Home — metrics, announcements, activity
-│   │   ├── expenses/page.tsx       # Expense tracker
+│   │   ├── page.tsx                # Home — metrics, announcements, activity, RentCountdown
+│   │   ├── expenses/page.tsx       # Expense tracker + recurring expenses
 │   │   ├── cleaning/page.tsx       # Cleaning schedule
 │   │   ├── tasks/page.tsx          # Task manager
 │   │   ├── roommates/page.tsx      # Roommate profiles
 │   │   ├── rates/page.tsx          # Exchange rates & converter
 │   │   ├── balances/page.tsx       # Expense balances
-│   │   └── settings/page.tsx       # Household settings
+│   │   ├── settings/page.tsx       # Household settings
+│   │   └── announcements/page.tsx   # Announcements board
 │   ├── actions/
 │   │   └── deleteRoommate.ts       # Server Action (firebase-admin)
 │   └── components/                 # Shared UI components
+│       ├── ConfirmModal.tsx
 │       ├── EmptyState.tsx
 │       ├── ErrorBoundary.tsx
 │       ├── LanguageSwitcher.tsx
 │       ├── NotificationsDropdown.tsx
+│       ├── RentCountdown.tsx      # Rent due date tracker
 │       ├── Skeleton.tsx
 │       └── Spinner.tsx
 ├── context/
-│   └── AuthContext.tsx             # Auth state via React context
+│   ├── AuthContext.tsx            # Auth state via React context
+│   ├── I18nContext.tsx           # Internationalization (en, ru, uz)
+│   └── NotificationsContext.tsx   # Notifications state
 ├── lib/
-│   └── firebase.ts                 # Firebase init + exports
-├── firestore.rules                 # Firestore security rules
-├── firebase.json                   # Firebase project config
-├── next.config.ts                  # Next.js config (Turbopack)
-├── tsconfig.json                   # TypeScript config (strict)
-└── .env.local                      # 🔒 Firebase credentials (never committed)
+│   ├── firebase.ts               # Firebase init + exports
+│   └── recurringExpensesEngine.ts # Auto-generate recurring expenses
+├── firestore.rules               # Firestore security rules
+├── firebase.json                 # Firebase project config
+├── next.config.ts                # Next.js config (Turbopack)
+├── tsconfig.json                 # TypeScript config (strict)
+└── .env.local                    # 🔒 Firebase credentials (never committed)
 ```
 
 ---
@@ -195,7 +205,7 @@ flatmate-dashboard/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/ukbalfa/flatmate-dashboard.git
+git clone https://github.com/ukbalfa/FlatMate.git
 cd flatmate-dashboard
 
 # 2. Install dependencies
@@ -253,7 +263,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
    | `password` | `string` | Login password (hashed recommended) |
    | `name` | `string` | Display name |
    | `role` | `"admin"` \| `"roommate"` | Access level |
-   | `color` | `string` | Avatar colour (hex, e.g. `#1D9E75`) |
+   | `color` | `string` | Avatar colour (hex, e.g. `#F97316`) |
    | `joinedAt` | `string` | ISO date string (`YYYY-MM-DD`) |
 
 5. Copy your Firebase web app credentials into `.env.local`.
@@ -290,7 +300,7 @@ Contributions are welcome! Here's how to get involved:
 
 <div align="center">
 
-Built with ❤️ for shared living &nbsp;·&nbsp; **v1.0.0**
+Built with ❤️ for shared living &nbsp;·&nbsp; **v0.1.0**
 
 </div>
 

@@ -10,7 +10,7 @@ This file contains high-signal, repo-specific instructions to help AI agents wor
 
 ## Styling & Theming
 - **Tailwind CSS v4**: Theme tokens are defined via `@theme inline` in `app/globals.css`.
-- **Brand Accent**: `#1D9E75` (`var(--color-accent)`).
+- **Brand Accent**: `#F97316` (`var(--color-accent)`).
 - **Dark/Light Mode**: Managed by `next-themes` via the `ThemeProvider` in `app/providers.tsx`.
 - **Animations**: Use Framer Motion for complex transitions/interactions and CSS helper classes (e.g., `animate-fade-in`, `stagger-1`) defined in `globals.css` for simpler cases.
 
