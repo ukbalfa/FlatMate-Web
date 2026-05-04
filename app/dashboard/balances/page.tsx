@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '../../../lib/firebase';
 import {
@@ -13,9 +13,11 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useI18n } from '../../../context/I18nContext';
 import { Spinner } from '../../components/Spinner';
 import { SkeletonTable } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
+import ConfirmModal from '../../components/ConfirmModal';
 import {
   Wallet,
   ArrowRightLeft,
@@ -55,15 +57,8 @@ interface Settlement {
   createdAt: string;
 }
 
-interface Balance {
-  user: string;
-  name: string;
-  paid: number;
-  owed: number;
-  netBalance: number;
-}
-
 export default function BalancesPage() {
+  const { t } = useI18n();
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -114,83 +109,24 @@ export default function BalancesPage() {
       );
     } catch (error) {
       console.error('Failed to load data:', error);
-      toast.error('No connection. Check your internet.');
+      toast.error(t('balances.toast.noConnection'));
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, t]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const calculateBalances = (): Balance[] => {
-    if (users.length === 0) return [];
-
-    const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const sharePerPerson = totalExpenses / users.length;
-
-    const userStats: Record<string, { paid: number; name: string }> = {};
-
-    users.forEach((u) => {
-      userStats[u.username] = { paid: 0, name: u.name || u.username };
-    });
-
-    expenses.forEach((e) => {
-      if (userStats[e.paidBy]) {
-        userStats[e.paidBy].paid += Number(e.amount) || 0;
-      }
-    });
-
-    return Object.entries(userStats).map(([username, stats]) => {
-      const netBalance = stats.paid - sharePerPerson;
-      return {
-        user: username,
-        name: stats.name,
-        paid: stats.paid,
-        owed: sharePerPerson,
-        netBalance: netBalance,
-      };
-    });
-  };
-
-  const calculateDebts = () => {
-    const balances = calculateBalances();
-    const creditors = balances.filter((b) => b.netBalance > 0);
-    const debtors = balances.filter((b) => b.netBalance < 0);
-
-    const debts: { from: string; fromName: string; to: string; toName: string; amount: number }[] = [];
-
-    debtors.forEach((debtor) => {
-      let remainingDebt = Math.abs(debtor.netBalance);
-
-      creditors.forEach((creditor) => {
-        if (remainingDebt <= 0) return;
-        const amount = Math.min(remainingDebt, creditor.netBalance);
-        if (amount > 0.01) {
-          debts.push({
-            from: debtor.user,
-            fromName: debtor.name,
-            to: creditor.user,
-            toName: creditor.name,
-            amount: Math.round(amount * 100) / 100,
-          });
-          remainingDebt -= amount;
-        }
-      });
-    });
-
-    return debts;
-  };
-
   const createSettlement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settlementForm.from || !settlementForm.to || !settlementForm.amount) {
-      toast.error('Please fill in all fields');
+      toast.error(t('balances.toast.fillAllFields'));
       return;
     }
     if (settlementForm.from === settlementForm.to) {
-      toast.error('Cannot settle to yourself');
+      toast.error(t('balances.toast.cannotSettleSelf'));
       return;
     }
     setSubmittingSettlement(true);
@@ -204,38 +140,86 @@ export default function BalancesPage() {
         status: 'completed',
         createdAt: new Date().toISOString(),
       });
-      toast.success('Payment recorded successfully');
+      toast.success(t('balances.toast.paymentRecorded'));
       setShowSettlementModal(false);
       setSettlementForm({ from: '', to: '', amount: '', note: '' });
       loadData();
     } catch (error) {
       console.error('Failed to create settlement:', error);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setSubmittingSettlement(false);
+      toast.error(t('balances.toast.somethingWrong'));
     }
   };
+
+  const [confirmState, setConfirmState] = useState<{ open: boolean; onConfirm: () => void; message: string }>({ open: false, onConfirm: () => {}, message: '' });
 
   const deleteSettlement = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this settlement? This cannot be undone.')) return;
-    try {
-      await deleteDoc(doc(db, 'settlements', id));
-      toast.success('Settlement deleted successfully');
-      loadData();
-    } catch (error) {
-      console.error('Failed to delete settlement:', error);
-      toast.error('Something went wrong. Please try again.');
-    }
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'settlements', id));
+          toast.success(t('balances.toast.settlementDeleted'));
+          loadData();
+        } catch (error) {
+          console.error('Failed to delete settlement:', error);
+          toast.error(t('balances.toast.deleteFailed'));
+        }
+      },
+      message: t('balances.confirm.deleteSettlement')
+    });
   };
 
-  const balances = calculateBalances();
-  const debts = calculateDebts();
+  const balances = useMemo(() => {
+    if (users.length === 0) return [];
+    const totalExp = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const sharePerPerson = totalExp / users.length;
+    const userStats: Record<string, { paid: number; name: string }> = {};
+    users.forEach((u) => {
+      userStats[u.username] = { paid: 0, name: u.name || u.username };
+    });
+    expenses.forEach((e) => {
+      if (userStats[e.paidBy]) {
+        userStats[e.paidBy].paid += Number(e.amount) || 0;
+      }
+    });
+    return Object.entries(userStats).map(([username, stats]) => ({
+      user: username,
+      name: stats.name,
+      paid: stats.paid,
+      owed: sharePerPerson,
+      netBalance: stats.paid - sharePerPerson,
+    }));
+  }, [expenses, users]);
+
+  const debts = useMemo(() => {
+    const creditors = balances.filter((b) => b.netBalance > 0);
+    const debtors = balances.filter((b) => b.netBalance < 0);
+    const result: { from: string; fromName: string; to: string; toName: string; amount: number }[] = [];
+    debtors.forEach((debtor) => {
+      let remainingDebt = Math.abs(debtor.netBalance);
+      creditors.forEach((creditor) => {
+        if (remainingDebt <= 0) return;
+        const amount = Math.min(remainingDebt, creditor.netBalance);
+        if (amount > 0.01) {
+          result.push({
+            from: debtor.user,
+            fromName: debtor.name,
+            to: creditor.user,
+            toName: creditor.name,
+            amount: Math.round(amount * 100) / 100,
+          });
+          remainingDebt -= amount;
+        }
+      });
+    });
+    return result;
+  }, [balances]);
   const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const isAdmin = userProfile?.role === 'admin';
 
   const getUserColor = (username: string) => {
     const user = users.find((u) => u.username === username);
-    return user?.color || '#1D9E75';
+    return user?.color || '#F97316';
   };
 
   const getUserName = (username: string) => {
@@ -249,9 +233,9 @@ export default function BalancesPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Expense Balances</h1>
+            <h1 className="text-2xl font-bold text-white">{t('balances.page.title')}</h1>
             <p className="text-gray-400 text-sm mt-1">
-              See who owes whom and track settlements
+              {t('balances.page.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -259,14 +243,14 @@ export default function BalancesPage() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-[#1a1d27] border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none"
+              className="bg-[#1a1d27] border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#F97316] outline-none"
             />
             <button
               onClick={() => setShowSettlementModal(true)}
-              className="flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-4 py-2 font-medium hover:bg-[#188a65] transition-colors"
+              className="flex items-center gap-2 bg-[#F97316] text-white rounded-lg px-4 py-2 font-medium hover:bg-[#188a65] transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Record Payment
+              {t('balances.recordPayment')}
             </button>
           </div>
         </div>
@@ -275,8 +259,8 @@ export default function BalancesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
-              <Wallet className="w-5 h-5 text-[#1D9E75]" />
-              <span className="text-gray-400 text-sm">Total Expenses</span>
+              <Wallet className="w-5 h-5 text-[#F97316]" />
+              <span className="text-gray-400 text-sm">{t('balances.totalExpenses')}</span>
             </div>
             <p className="text-2xl font-bold text-white">
               {totalExpenses.toLocaleString()} UZS
@@ -285,7 +269,7 @@ export default function BalancesPage() {
           <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <User className="w-5 h-5 text-blue-500" />
-              <span className="text-gray-400 text-sm">Share Per Person</span>
+              <span className="text-gray-400 text-sm">{t('balances.sharePerPerson')}</span>
             </div>
             <p className="text-2xl font-bold text-white">
               {users.length > 0 ? Math.round(totalExpenses / users.length).toLocaleString() : '0'} UZS
@@ -294,7 +278,7 @@ export default function BalancesPage() {
           <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <ArrowRightLeft className="w-5 h-5 text-amber-500" />
-              <span className="text-gray-400 text-sm">Active Debts</span>
+              <span className="text-gray-400 text-sm">{t('balances.activeDebts')}</span>
             </div>
             <p className="text-2xl font-bold text-white">{debts.length}</p>
           </div>
@@ -307,7 +291,7 @@ export default function BalancesPage() {
             {/* Balances Table */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">Member Balances</h2>
+                <h2 className="text-lg font-semibold text-white">{t('balances.memberBalances')}</h2>
               </div>
               <div className="divide-y divide-white/5">
                 {balances.map((balance) => (
@@ -325,7 +309,7 @@ export default function BalancesPage() {
                       <div>
                         <p className="text-white font-medium">{balance.name}</p>
                         <p className="text-sm text-gray-500">
-                          Paid: {balance.paid.toLocaleString()} UZS
+                          {t('balances.paid')}: {balance.paid.toLocaleString()} UZS
                         </p>
                       </div>
                     </div>
@@ -346,10 +330,10 @@ export default function BalancesPage() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {balance.netBalance > 0
-                          ? 'should receive'
+                          ? t('balances.shouldReceive')
                           : balance.netBalance < 0
-                          ? 'owes'
-                          : 'settled'}
+                          ? t('balances.owes')
+                          : t('balances.settled')}
                       </p>
                     </div>
                   </div>
@@ -360,13 +344,13 @@ export default function BalancesPage() {
             {/* Who Owes Who */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">Who Owes Whom</h2>
+                <h2 className="text-lg font-semibold text-white">{t('balances.whoOwesWhom')}</h2>
               </div>
               {debts.length === 0 ? (
                 <EmptyState
                   icon={<CheckCircle className="w-8 h-8" />}
-                  title="All settled up!"
-                  description="No debts for this month. Everyone's even."
+                  title={t('balances.allSettled')}
+                  description={t('balances.allSettledDesc')}
                 />
               ) : (
                 <div className="divide-y divide-white/5">
@@ -413,14 +397,14 @@ export default function BalancesPage() {
             {/* Settlement History */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
               <div className="px-6 py-4 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">Settlement History</h2>
+                <h2 className="text-lg font-semibold text-white">{t('balances.settlementHistory')}</h2>
               </div>
               {settlements.length === 0 ? (
                 <div className="py-8">
                   <EmptyState
                     emoji="📝"
-                    title="No settlements yet"
-                    description="Record a payment when someone settles their debt"
+                    title={t('balances.noSettlements')}
+                    description={t('balances.noSettlementsDesc')}
                   />
                 </div>
               ) : (
@@ -490,7 +474,7 @@ export default function BalancesPage() {
             className="bg-[#1a1d27] border border-white/10 rounded-xl p-6 w-full max-w-md"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Record Settlement</h3>
+              <h3 className="text-xl font-bold text-white">{t('balances.modal.recordSettlement')}</h3>
               <button
                 onClick={() => setShowSettlementModal(false)}
                 className="text-gray-400 hover:text-white"
@@ -500,17 +484,17 @@ export default function BalancesPage() {
             </div>
             <form onSubmit={createSettlement} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">From (Payer)</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('balances.modal.fromPayer')}</label>
                 <select
                   value={settlementForm.from}
                   onChange={(e) =>
                     setSettlementForm({ ...settlementForm, from: e.target.value })
                   }
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#F97316] outline-none"
                 >
                   <option value="" className="bg-[#1a1d27]">
-                    Select payer
+                    {t('balances.modal.selectPayer')}
                   </option>
                   {users.map((u) => (
                     <option key={u.username} value={u.username} className="bg-[#1a1d27]">
@@ -520,17 +504,17 @@ export default function BalancesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">To (Recipient)</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('balances.modal.toRecipient')}</label>
                 <select
                   value={settlementForm.to}
                   onChange={(e) =>
                     setSettlementForm({ ...settlementForm, to: e.target.value })
                   }
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#F97316] outline-none"
                 >
                   <option value="" className="bg-[#1a1d27]">
-                    Select recipient
+                    {t('balances.modal.selectRecipient')}
                   </option>
                   {users.map((u) => (
                     <option key={u.username} value={u.username} className="bg-[#1a1d27]">
@@ -540,7 +524,7 @@ export default function BalancesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Amount (UZS)</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('balances.modal.amount')}</label>
                 <input
                   type="number"
                   value={settlementForm.amount}
@@ -549,19 +533,19 @@ export default function BalancesPage() {
                   }
                   required
                   min="1"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#F97316] outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Note (Optional)</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('balances.modal.note')}</label>
                 <input
                   type="text"
                   value={settlementForm.note}
                   onChange={(e) =>
                     setSettlementForm({ ...settlementForm, note: e.target.value })
                   }
-                  placeholder="e.g., Cash, Bank transfer"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] outline-none"
+                  placeholder={t('balances.modal.notePlaceholder')}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] outline-none"
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -570,21 +554,32 @@ export default function BalancesPage() {
                   onClick={() => setShowSettlementModal(false)}
                   className="flex-1 bg-white/10 text-white rounded-lg px-4 py-2.5 font-medium hover:bg-white/15 transition"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={submittingSettlement}
-                  className="flex-1 bg-[#1D9E75] text-white rounded-lg px-4 py-2.5 font-medium hover:bg-[#188a65] transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#F97316] text-white rounded-lg px-4 py-2.5 font-medium hover:bg-[#188a65] transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
                   {submittingSettlement && <Spinner />}
-                  Record Payment
+                  {t('balances.modal.recordPayment')}
                 </button>
               </div>
             </form>
           </motion.div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmState.open}
+        title={t('balances.confirm')}
+        message={confirmState.message}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          setConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }

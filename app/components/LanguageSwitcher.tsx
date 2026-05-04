@@ -72,7 +72,7 @@ export default function LanguageSwitcher() {
                     <span className="text-lg">{lang.flag}</span>
                     <span className="flex-1 text-sm text-white">{lang.name}</span>
                     {language === lang.code && (
-                      <Check className="w-4 h-4 text-[#1D9E75]" />
+                      <Check className="w-4 h-4 text-[#F97316]" />
                     )}
                   </button>
                 ))}

@@ -21,14 +21,14 @@ interface Announcement {
 }
 
 const colorClasses = {
-  teal: 'border-[#1D9E75]',
+  teal: 'border-[#F97316]',
   amber: 'border-amber-400',
   red: 'border-red-400',
   blue: 'border-blue-400'
 };
 
 const bgColors = {
-  teal: 'bg-[#1D9E75]',
+  teal: 'bg-[#F97316]',
   amber: 'bg-amber-400',
   red: 'bg-red-400',
   blue: 'bg-blue-400'
@@ -188,7 +188,7 @@ export default function AnnouncementsPage() {
                       <div className="flex items-center gap-2 opacity-0 hover:opacity-100 transition-opacity absolute top-4 right-4">
                         <button
                           onClick={() => handleTogglePin(a.id, a.pinned)}
-                          className={`p-1.5 rounded-lg transition-colors ${a.pinned ? 'text-[#1D9E75] bg-[#1D9E75]/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                          className={`p-1.5 rounded-lg transition-colors ${a.pinned ? 'text-[#F97316] bg-[#F97316]/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
                           title="Toggle pin"
                         >
                           <Pin className="w-4 h-4" />
@@ -217,7 +217,7 @@ export default function AnnouncementsPage() {
                     <div className="flex lg:hidden items-center gap-4 mt-4 pt-4 border-t border-white/[0.06]">
                       <button
                         onClick={() => handleTogglePin(a.id, a.pinned)}
-                        className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${a.pinned ? 'text-[#1D9E75]' : 'text-gray-400'}`}
+                        className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${a.pinned ? 'text-[#F97316]' : 'text-gray-400'}`}
                       >
                         <Pin className="w-4 h-4" />
                         {a.pinned ? 'Unpin' : 'Pin'}
@@ -248,7 +248,7 @@ export default function AnnouncementsPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={100}
-                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none"
+                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#F97316] outline-none"
                 />
               </div>
               
@@ -259,7 +259,7 @@ export default function AnnouncementsPage() {
                   onChange={(e) => setContent(e.target.value)}
                   maxLength={500}
                   rows={4}
-                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#1D9E75] outline-none resize-none"
+                  className="w-full bg-white/[0.05] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-[#F97316] outline-none resize-none"
                 />
                 <div className="text-right mt-1">
                   <span className={`text-xs ${content.length >= 500 ? 'text-red-400' : 'text-gray-500'}`}>
@@ -283,7 +283,7 @@ export default function AnnouncementsPage() {
                   </div>
                   
                   <label className="flex items-center gap-2 cursor-pointer group ml-2">
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${pinned ? 'bg-[#1D9E75] border-[#1D9E75]' : 'border-white/20 group-hover:border-white/40 bg-white/5'}`}>
+                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${pinned ? 'bg-[#F97316] border-[#F97316]' : 'border-white/20 group-hover:border-white/40 bg-white/5'}`}>
                       {pinned && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                     </div>
                     <input
@@ -299,7 +299,7 @@ export default function AnnouncementsPage() {
                 <button
                   type="submit"
                   disabled={!title || !content}
-                  className="bg-[#1D9E75] text-white px-5 py-2.5 rounded-lg hover:bg-[#188a65] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
+                  className="bg-[#F97316] text-white px-5 py-2.5 rounded-lg hover:bg-[#188a65] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-2"
                 >
                   <Megaphone className="w-4 h-4" />
                   Post

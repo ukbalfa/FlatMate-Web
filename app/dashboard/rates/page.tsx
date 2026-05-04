@@ -135,7 +135,7 @@ export default function RatesPage() {
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-semibold">{t('rates.title')}</h2>
                 {!loading && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${isCached ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-[#1D9E75]/10 text-[#1D9E75] border border-[#1D9E75]/20'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${isCached ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20'}`}>
                     {isCached ? 'Cached' : 'Live'}
                   </span>
                 )}

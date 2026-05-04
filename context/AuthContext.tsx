@@ -7,6 +7,7 @@ import { auth, db } from '../lib/firebase';
 interface UserProfile {
   uid: string;
   username: string;
+  flatId?: string;
   name?: string;
   role?: 'admin' | 'roommate';
   color?: string;

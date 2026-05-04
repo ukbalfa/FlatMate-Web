@@ -15,7 +15,7 @@ const typeIcons = {
 
 const typeColors = {
   task: 'text-blue-400 bg-blue-500/20',
-  expense: 'text-[#1D9E75] bg-[#1D9E75]/20',
+  expense: 'text-[#F97316] bg-[#F97316]/20',
   cleaning: 'text-amber-400 bg-amber-500/20',
   settlement: 'text-purple-400 bg-purple-500/20',
   system: 'text-gray-400 bg-gray-500/20',
@@ -104,7 +104,7 @@ export default function NotificationsDropdown() {
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-xs text-[#1D9E75] hover:text-[#188a65] flex items-center gap-1 px-2 py-1 rounded hover:bg-white/5 transition-colors"
+                        className="text-xs text-[#F97316] hover:text-[#188a65] flex items-center gap-1 px-2 py-1 rounded hover:bg-white/5 transition-colors"
                       >
                         <Check className="w-3 h-3" />
                         Mark all read
@@ -164,7 +164,7 @@ export default function NotificationsDropdown() {
 
                           {/* Unread indicator */}
                           {!notification.read && (
-                            <span className="w-2 h-2 bg-[#1D9E75] rounded-full flex-shrink-0 mt-2" />
+                            <span className="w-2 h-2 bg-[#F97316] rounded-full flex-shrink-0 mt-2" />
                           )}
                         </button>
                       );

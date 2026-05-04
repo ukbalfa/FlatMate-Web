@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { SkeletonCard } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
+import RentCountdown from '../components/RentCountdown';
 import {
   Receipt,
   CheckSquare,
@@ -237,7 +238,7 @@ export default function DashboardPage() {
       value: totalMonthExpenses.toLocaleString() + ' UZS',
       subtitle: 'Total expenses',
       icon: Wallet,
-      color: 'bg-[#1D9E75]',
+      color: 'bg-[#F97316]',
       trend: myMonthExpenses > 0 ? 'You paid ' + myMonthExpenses.toLocaleString() : null,
     },
     {
@@ -328,7 +329,7 @@ export default function DashboardPage() {
                     {stat.subtitle}
                   </p>
                   {stat.trend && (
-                    <p className="text-xs text-[#1D9E75] mt-1">{stat.trend}</p>
+                    <p className="text-xs text-[#F97316] mt-1">{stat.trend}</p>
                   )}
                 </div>
                 <div className={`${stat.color} p-2.5 rounded-lg`}>
@@ -352,7 +353,7 @@ export default function DashboardPage() {
                     label: 'Add Expense',
                     href: '/dashboard/expenses',
                     icon: Receipt,
-                    color: 'bg-[#1D9E75]',
+                    color: 'bg-[#F97316]',
                   },
                   {
                     label: 'Add Task',
@@ -393,12 +394,12 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-[#1D9E75]" />
+                  <Activity className="w-5 h-5 text-[#F97316]" />
                   Recent Activity
                 </h2>
                 <Link
                   href="/dashboard/expenses"
-                  className="text-sm text-[#1D9E75] hover:text-[#188a65] flex items-center gap-1"
+                  className="text-sm text-[#F97316] hover:text-[#188a65] flex items-center gap-1"
                 >
                   View all <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -429,7 +430,7 @@ export default function DashboardPage() {
                       <div
                         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                           activity.type === 'expense'
-                            ? 'bg-[#1D9E75]/20 text-[#1D9E75]'
+                            ? 'bg-[#F97316]/20 text-[#F97316]'
                             : activity.type === 'task'
                             ? 'bg-blue-500/20 text-blue-500'
                             : 'bg-amber-500/20 text-amber-500'
@@ -461,8 +462,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Right Column - My Tasks & Cleaning */}
+          {/* Right Column - Rent, Tasks & Cleaning */}
           <div className="space-y-6">
+            {/* Rent Countdown */}
+            <RentCountdown />
+
             {/* My Tasks */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
@@ -526,7 +530,7 @@ export default function DashboardPage() {
                   {myTasks.length > 5 && (
                     <Link
                       href="/dashboard/tasks"
-                      className="block text-center text-sm text-[#1D9E75] hover:text-[#188a65] py-2"
+                      className="block text-center text-sm text-[#F97316] hover:text-[#188a65] py-2"
                     >
                       View {myTasks.length - 5} more tasks →
                     </Link>
@@ -605,7 +609,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#1D9E75] rounded-full transition-all duration-500"
+                      className="h-full bg-[#F97316] rounded-full transition-all duration-500"
                       style={{
                         width: `${Math.min(
                           (myMonthExpenses / (totalMonthExpenses || 1)) * 100,

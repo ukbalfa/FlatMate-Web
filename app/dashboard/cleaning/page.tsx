@@ -64,11 +64,11 @@ export default function CleaningPage() {
         setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
       } catch (error) {
         console.error('Failed to load users:', error);
-        toast.error('Failed to load users');
+        toast.error(t('cleaning.toast.loadUsersFailed'));
       }
     };
     loadUsers();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const q = query(collection(db, 'cleaning'), where('weekStart', '==', weekStart));
@@ -81,13 +81,13 @@ export default function CleaningPage() {
       },
       (error) => {
         console.error('Failed to load cleaning tasks:', error);
-        toast.error('Failed to load tasks');
+        toast.error(t('cleaning.toast.loadTasksFailed'));
         setLoading(false);
       }
     );
     
     return () => unsubscribe();
-  }, [weekStart]);
+  }, [weekStart, t]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,14 +97,14 @@ export default function CleaningPage() {
       setTask('');
       setDayOfWeek('Monday');
       setAssignedTo('');
-      toast.success('Cleaning task added');
+      toast.success(t('cleaning.toast.taskAdded'));
       const assignedSnap = await getDocs(query(collection(db, 'users'), where('username', '==', assignedTo)));
       if (!assignedSnap.empty) {
         const assignedDoc = assignedSnap.docs[0];
         if (assignedDoc.id !== userProfile?.uid) {
           await createNotification({
             userId: assignedDoc.id,
-            title: 'Cleaning task assigned',
+            title: t('cleaning.toast.taskAssigned'),
             message: `"${task}" — ${dayOfWeek}`,
             type: 'cleaning',
             read: false,
@@ -115,31 +115,32 @@ export default function CleaningPage() {
   
     } catch (error) {
       console.error('Failed to add cleaning task:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add cleaning task');
+      toast.error(error instanceof Error ? error.message : t('cleaning.toast.addFailed'));
     }
   };
 
   const toggleDone = async (item: CleaningTask) => {
     try {
       await updateDoc(doc(db, 'cleaning', item.id), { done: !item.done });
-      toast.success('Task marked done');
+      toast.success(t('cleaning.toast.taskDone'));
     } catch (error) {
       console.error('Failed to update task:', error);
-      toast.error('Failed to update');
+      toast.error(t('cleaning.toast.updateFailed'));
     }
   };
 
   const isAdmin = userProfile?.role === 'admin';
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this?')) return;
-    try {
-      await deleteDoc(doc(db, 'cleaning', id));
-      toast.success('Deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete cleaning task:', error);
-      toast.error('Failed to delete');
-    }
+    setConfirmModal({ isOpen: true, action: async () => {
+      try {
+        await deleteDoc(doc(db, 'cleaning', id));
+        toast.success(t('cleaning.toast.deleted'));
+      } catch (error) {
+        console.error('Failed to delete cleaning task:', error);
+        toast.error(t('cleaning.toast.deleteFailed'));
+      }
+    }, message: t('cleaning.deleteConfirm') });
   };
 
   return (
@@ -188,7 +189,7 @@ export default function CleaningPage() {
               ))}
             </>
           ) : cleaning.length === 0 ? (
-            <div className="py-8 text-center text-gray-400 text-sm">No cleaning tasks for this week.</div>
+            <div className="py-8 text-center text-gray-400 text-sm">{t('cleaning.noTasks')}</div>
           ) : (
             <div className="space-y-0">
               {cleaning.map((item, i) => {
@@ -225,7 +226,7 @@ export default function CleaningPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
-                          style={{ background: assignedUser?.color || '#1D9E75' }}
+                          style={{ background: assignedUser?.color || '#F97316' }}
                         >
                           {assignedUser?.name?.[0]?.toUpperCase() || assignedUser?.username?.[0]?.toUpperCase() || '?'}
                         </span>
@@ -234,14 +235,14 @@ export default function CleaningPage() {
                         </span>
                       </div>
                       <span className="px-3 py-1 rounded-full bg-white/[0.08] text-white text-xs font-medium">
-                        {item.dayOfWeek}
+                        {t('cleaning.day.' + item.dayOfWeek)}
                       </span>
                       <label className="flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={item.done}
                           onChange={() => toggleDone(item)}
-                          className="w-5 h-5 rounded border-2 border-gray-300 dark:border-gray-600 text-[#1D9E75] focus:ring-2 focus:ring-[#1D9E75] focus:ring-offset-0 cursor-pointer transition"
+                          className="w-5 h-5 rounded border-2 border-gray-300 dark:border-gray-600 text-[#F97316] focus:ring-2 focus:ring-[#F97316] focus:ring-offset-0 cursor-pointer transition"
                         />
                       </label>
                       {isAdmin && (
@@ -264,30 +265,30 @@ export default function CleaningPage() {
         {/* Admin Add Task Form */}
         {userProfile?.role === 'admin' && (
           <div className="bg-[#1a1d27] border border-white/[0.06] border border-white/[0.06] rounded-xl p-6">
-            <h3 className="text-lg font-semibold mb-4 text-white">Add cleaning task</h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">{t('cleaning.addTaskTitle')}</h3>
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Task name</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('cleaning.taskName')}</label>
                 <input
                   type="text"
                   value={task}
                   onChange={(e) => setTask(e.target.value)}
-                  className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                  className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Day</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('cleaning.day')}</label>
                   <select
                     value={dayOfWeek}
                     onChange={(e) => setDayOfWeek(e.target.value)}
-                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     required
                   >
                     {DAYS.map((day) => (
                       <option className="bg-[#1a1d27]" key={day} value={day}>
-                        {day}
+                        {t('cleaning.day.' + day)}
                       </option>
                     ))}
                   </select>
@@ -297,10 +298,10 @@ export default function CleaningPage() {
                   <select
                     value={assignedTo}
                     onChange={(e) => setAssignedTo(e.target.value)}
-                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white/[0.05] border border-white/10 text-white border border-white/10 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     required
                   >
-                    <option className="bg-[#1a1d27]" value="">Select</option>
+                    <option className="bg-[#1a1d27]" value="">{t('cleaning.select')}</option>
                     {users.map((u) => (
                       <option className="bg-[#1a1d27]" key={u.username} value={u.username}>
                         {u.name || u.username}
@@ -313,7 +314,7 @@ export default function CleaningPage() {
                 type="submit"
                 className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition"
               >
-                Add Task
+                {t('cleaning.addTaskButton')}
               </button>
             </form>
           </div>

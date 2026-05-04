@@ -9,8 +9,10 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
+  getDocs,
 } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
@@ -31,6 +33,7 @@ interface NotificationsContextType {
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  clearAll: () => Promise<void>;
   createNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
 }
 
@@ -39,6 +42,7 @@ const NotificationsContext = createContext<NotificationsContextType>({
   unreadCount: 0,
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  clearAll: async () => {},
   createNotification: async () => {},
 });
 
@@ -110,6 +114,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearAll = async () => {
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('userId', '==', userProfile?.uid)
+      );
+      const snapshot = await getDocs(q);
+      await Promise.all(snapshot.docs.map((d) => deleteDoc(doc(db, 'notifications', d.id))));
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+    }
+  };
+
   const createNotification = async (
     notification: Omit<Notification, 'id' | 'createdAt'>
   ) => {
@@ -136,6 +153,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         unreadCount,
         markAsRead,
         markAllAsRead,
+        clearAll,
         createNotification,
       }}
     >

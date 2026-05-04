@@ -7,8 +7,10 @@ import { Trash2, Repeat, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { Spinner } from '../../components/Spinner';
 import { SkeletonList } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
+import ConfirmModal from '../../components/ConfirmModal';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useI18n } from '../../../context/I18nContext';
 
 interface Expense {
   id: string;
@@ -37,7 +39,7 @@ interface RecurringExpense {
 }
 
 const CATEGORIES = [
-  { name: 'Rent', color: 'bg-[#1D9E75]' },
+  { name: 'Rent', color: 'bg-[#F97316]' },
   { name: 'Groceries', color: 'bg-blue-500' },
   { name: 'Utilities', color: 'bg-[#f59e0b]' },
   { name: 'Internet', color: 'bg-purple-500' },
@@ -76,6 +78,7 @@ function generateRecurringDates(startDate: string, pattern: 'monthly' | 'weekly'
 }
 
 export default function ExpensesPage() {
+  const { t } = useI18n();
   const { userProfile } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
@@ -93,6 +96,7 @@ export default function ExpensesPage() {
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
   const [showRecurringSection, setShowRecurringSection] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingRecurring, setGeneratingRecurring] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'expenses'), orderBy('date', 'desc'));
@@ -105,7 +109,7 @@ export default function ExpensesPage() {
       },
       (error) => {
         console.error('Failed to load expenses:', error);
-        toast.error('Failed to load expenses');
+        toast.error(t('expenses.toast.loadFailed'));
         setLoading(false);
       }
     );
@@ -114,7 +118,34 @@ export default function ExpensesPage() {
     loadRecurringExpenses();
     
     return () => unsubscribe();
-  }, []);
+  }, [t]);
+
+  // Generate missing recurring expenses on mount
+  useEffect(() => {
+    const generateMissingExpenses = async () => {
+      if (!userProfile?.flatId) return;
+      
+      try {
+        setGeneratingRecurring(true);
+        const { generateMissingRecurringExpenses } = await import('../../../lib/recurringExpensesEngine');
+        const results = await generateMissingRecurringExpenses(userProfile.flatId);
+        
+        if (results.length > 0) {
+          const totalGenerated = results.reduce((sum, result) => sum + result.generated, 0);
+          if (totalGenerated > 0) {
+            toast.success(`${t('expenses.toast.generated')} ${totalGenerated} ${t('expenses.toast.recurringExpense')}${totalGenerated > 1 ? 's' : ''}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error generating recurring expenses:', error);
+        toast.error(t('expenses.toast.syncFailed'));
+      } finally {
+        setGeneratingRecurring(false);
+      }
+    };
+
+    generateMissingExpenses();
+  }, [userProfile?.flatId, t]);
 
   const loadRecurringExpenses = async () => {
     try {
@@ -133,6 +164,7 @@ export default function ExpensesPage() {
     try {
       if (isRecurring) {
         const recurringData = {
+          flatId: userProfile?.flatId || '',
           amount: Number(amount),
           category,
           paidBy: userProfile?.username || '',
@@ -142,33 +174,32 @@ export default function ExpensesPage() {
           note,
           createdAt: new Date().toISOString(),
           nextDueDate: date,
+          lastGeneratedDate: date,
         };
         
         const recurringRef = await addDoc(collection(db, 'recurringExpenses'), recurringData);
         
-        const dates = generateRecurringDates(date, recurrencePattern, recurrenceEndDate || undefined);
-        const batchPromises = dates.map(d => 
-          addDoc(collection(db, 'expenses'), {
-            amount: Number(amount),
-            category,
-            paidBy: userProfile?.username || '',
-            date: d,
-            note: note ? `${note} (Recurring)` : 'Recurring expense',
-            isRecurring: true,
-            recurrencePattern,
-            recurrenceEndDate: recurrenceEndDate || null,
-            parentExpenseId: recurringRef.id,
-          })
-        );
+        await addDoc(collection(db, 'expenses'), {
+          flatId: userProfile?.flatId || '',
+          amount: Number(amount),
+          category,
+          paidBy: userProfile?.username || '',
+          date,
+          note: note ? `${note} (Recurring)` : 'Recurring expense',
+          isRecurring: true,
+          recurrencePattern,
+          recurrenceEndDate: recurrenceEndDate || null,
+          parentExpenseId: recurringRef.id,
+        });
         
-        await Promise.all(batchPromises);
-        toast.success(`Recurring ${recurrencePattern} expense created with ${dates.length} instances`);
+        toast.success(`${t('expenses.toast.recurring')} ${recurrencePattern} ${t('expenses.toast.createdSuccessfully')}`);
         
         setIsRecurring(false);
         setRecurrenceEndDate('');
         loadRecurringExpenses();
       } else {
         await addDoc(collection(db, 'expenses'), {
+          flatId: userProfile?.flatId || '',
           amount: Number(amount),
           category,
           paidBy: userProfile?.username || '',
@@ -176,7 +207,7 @@ export default function ExpensesPage() {
           note,
           isRecurring: false,
         });
-        toast.success('Expense added successfully');
+        toast.success(t('expenses.toast.added'));
       }
       
       setAmount('');
@@ -185,31 +216,37 @@ export default function ExpensesPage() {
       setNote('');
     } catch (error) {
       console.error('Failed to add expense:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('expenses.toast.addFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
+  const [confirmState, setConfirmState] = useState<{ open: boolean; onConfirm: () => void; message: string }>({ open: false, onConfirm: () => {}, message: '' });
+
   const deleteRecurringExpense = async (id: string) => {
-    if (!window.confirm('Delete this recurring expense and all its future instances?')) return;
-    
-    try {
-      // Delete the recurring template
-      await deleteDoc(doc(db, 'recurringExpenses', id));
-      
-      // Delete all related expenses from today onwards
-      const today = new Date().toISOString().slice(0, 10);
-      const relatedExpenses = expenses.filter(e => e.parentExpenseId === id && e.date >= today);
-      
-      await Promise.all(relatedExpenses.map(e => deleteDoc(doc(db, 'expenses', e.id))));
-      
-      toast.success('Recurring expense deleted');
-      loadRecurringExpenses();
-    } catch (error) {
-      console.error('Failed to delete recurring expense:', error);
-      toast.error('Failed to delete recurring expense');
-    }
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        try {
+          // Delete the recurring template
+          await deleteDoc(doc(db, 'recurringExpenses', id));
+
+          // Delete all related expenses from today onwards
+          const today = new Date().toISOString().slice(0, 10);
+          const relatedExpenses = expenses.filter(e => e.parentExpenseId === id && e.date >= today);
+
+          await Promise.all(relatedExpenses.map(e => deleteDoc(doc(db, 'expenses', e.id))));
+
+          toast.success(t('expenses.toast.recurringDeleted'));
+          loadRecurringExpenses();
+        } catch (error) {
+          console.error('Failed to delete recurring expense:', error);
+          toast.error(t('expenses.toast.recurringDeleteFailed'));
+        }
+      },
+      message: t('expenses.deleteRecurringConfirm')
+    });
   };
 
   const filtered = expenses
@@ -219,14 +256,19 @@ export default function ExpensesPage() {
   const isAdmin = userProfile?.role === 'admin';
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this?')) return;
-    try {
-      await deleteDoc(doc(db, 'expenses', id));
-      toast.success('Deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete expense:', error);
-      toast.error('Failed to delete');
-    }
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'expenses', id));
+          toast.success(t('expenses.toast.deleted'));
+        } catch (error) {
+          console.error('Failed to delete expense:', error);
+          toast.error(t('expenses.toast.deleteFailed'));
+        }
+      },
+      message: t('expenses.deleteConfirm')
+    });
   };
 
   const summary = CATEGORIES.map(cat => {
@@ -240,6 +282,14 @@ export default function ExpensesPage() {
   return (
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Generating State Indicator */}
+        {generatingRecurring && (
+          <div className="bg-[#F97316]/10 border border-[#F97316]/20 rounded-xl p-4 flex items-center gap-3 text-[#F97316] animate-pulse">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span className="font-medium">{t('expenses.syncingRecurring')}</span>
+          </div>
+        )}
+
         {/* Summary Card */}
         <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">{selectedMonth}</h3>
@@ -251,7 +301,7 @@ export default function ExpensesPage() {
                 </span>
                 <div className="flex-1 bg-[#f3f4f6] dark:bg-gray-700 rounded-md h-5 relative overflow-hidden">
                   <div
-                    className={`${cat.name === 'Rent' ? 'bg-[#1D9E75]' : cat.color} h-5 rounded-md transition-all duration-500`}
+                    className={`${cat.name === 'Rent' ? 'bg-[#F97316]' : cat.color} h-5 rounded-md transition-all duration-500`}
                     style={{ width: `${(cat.total / maxTotal) * 100}%`, minWidth: cat.total ? 24 : 2 }}
                   ></div>
                 </div>
@@ -265,25 +315,25 @@ export default function ExpensesPage() {
 
         {/* Add Expense Form */}
         <form onSubmit={handleAdd} className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">Add expense</h3>
+          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">{t('expenses.addExpenseTitle')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Amount (UZS)</label>
+              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('expenses.amountUzs')}</label>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                 required
                 min="1"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Category</label>
+              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('expenses.category')}</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                 required
               >
                 {CATEGORIES.map((cat) => (
@@ -294,24 +344,24 @@ export default function ExpensesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Date</label>
+              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('expenses.date')}</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Note</label>
+              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('expenses.note')}</label>
               <input
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={100}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
-                placeholder="Optional"
+                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
+                placeholder={t('expenses.optional')}
               />
               <div className="text-right text-xs text-gray-400 mt-1">{note.length}/100</div>
             </div>
@@ -324,50 +374,50 @@ export default function ExpensesPage() {
               onClick={() => setIsRecurring(!isRecurring)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isRecurring
-                  ? 'bg-[#1D9E75]/20 text-[#1D9E75] border border-[#1D9E75]/30'
+                  ? 'bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30'
                   : 'bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               <Repeat className="w-4 h-4" />
-              {isRecurring ? 'Recurring Enabled' : 'Make Recurring'}
+              {isRecurring ? t('expenses.recurringEnabled') : t('expenses.makeRecurring')}
             </button>
           </div>
           
           {/* Recurring Options */}
           {isRecurring && (
-            <div className="mt-4 p-4 bg-[#1D9E75]/5 border border-[#1D9E75]/20 rounded-lg animate-fade-in">
+            <div className="mt-4 p-4 bg-[#F97316]/5 border border-[#F97316]/20 rounded-lg animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Repeat Pattern</label>
+                  <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('expenses.repeatPattern')}</label>
                   <select
                     value={recurrencePattern}
                     onChange={(e) => setRecurrencePattern(e.target.value as 'monthly' | 'weekly' | 'yearly')}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   >
-                    <option value="monthly">Monthly (e.g., Rent)</option>
-                    <option value="weekly">Weekly (e.g., Groceries)</option>
-                    <option value="yearly">Yearly</option>
+                    <option value="monthly">{t('expenses.monthly')}</option>
+                    <option value="weekly">{t('expenses.weekly')}</option>
+                    <option value="yearly">{t('expenses.yearly')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">
-                    End Date (Optional)
-                    <span className="text-xs text-gray-400 ml-1">- Leave empty for no end</span>
-                  </label>
+                    <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">
+                      {t('expenses.endDate')}
+                      <span className="text-xs text-gray-400 ml-1">- {t('expenses.endDateHint')}</span>
+                    </label>
                   <input
                     type="date"
                     value={recurrenceEndDate}
                     onChange={(e) => setRecurrenceEndDate(e.target.value)}
                     min={date}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   />
                 </div>
               </div>
-              <p className="mt-3 text-sm text-[#1D9E75]">
+              <p className="mt-3 text-sm text-[#F97316]">
                 <RefreshCw className="w-3 h-3 inline mr-1" />
-                This will create {recurrenceEndDate 
+                {t('expenses.thisWillCreate')} {recurrenceEndDate 
                   ? generateRecurringDates(date, recurrencePattern, recurrenceEndDate).length 
-                  : 'multiple'} expense entries automatically
+                  : 'multiple'} {t('expenses.recurringNote')}
               </p>
             </div>
           )}
@@ -378,7 +428,7 @@ export default function ExpensesPage() {
             className="w-full mt-4 bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
             {submitting && <Spinner />}
-            {isRecurring ? `Create Recurring ${recurrencePattern} Expense` : 'Add Expense'}
+            {isRecurring ? `${t('expenses.createRecurring')} ${recurrencePattern} ${t('expenses.expense')}` : t('expenses.addExpenseButton')}
           </button>
         </form>
 
@@ -390,8 +440,8 @@ export default function ExpensesPage() {
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Repeat className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">Recurring Expenses</h3>
+                <Repeat className="w-5 h-5 text-[#F97316]" />
+                <h3 className="text-lg font-semibold text-white">{t('expenses.recurringExpenses')}</h3>
                 <span className="px-2 py-0.5 rounded-full bg-white/10 text-gray-400 text-xs">
                   {recurringExpenses.length}
                 </span>
@@ -422,8 +472,8 @@ export default function ExpensesPage() {
                           </span>
                         </p>
                         <p className="text-sm text-gray-500">
-                          Started {rec.startDate}
-                          {rec.endDate && ` • Ends ${rec.endDate}`}
+                          {t('expenses.started')} {rec.startDate}
+                          {rec.endDate && ` \u2022 ${t('expenses.ends')} ${rec.endDate}`}
                         </p>
                       </div>
                     </div>
@@ -446,7 +496,7 @@ export default function ExpensesPage() {
         {/* Transactions Card */}
         <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-[#0a0a0a] dark:text-gray-100">Transactions</h3>
+            <h3 className="text-lg font-semibold text-[#0a0a0a] dark:text-gray-100">{t('expenses.transactions')}</h3>
           </div>
 
           {/* Filter Buttons */}
@@ -454,12 +504,12 @@ export default function ExpensesPage() {
             <button
               className={`px-3 py-1.5 text-sm font-medium rounded-full transition ${
                 filter === 'All'
-                  ? 'bg-[#1D9E75] text-white'
+                  ? 'bg-[#F97316] text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
               onClick={() => setFilter('All')}
             >
-              All
+              {t('expenses.all')}
             </button>
             {CATEGORIES.map((cat) => (
               <button
@@ -478,7 +528,7 @@ export default function ExpensesPage() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="ml-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+              className="ml-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
             />
           </div>
 
@@ -488,11 +538,11 @@ export default function ExpensesPage() {
               <SkeletonList rows={4} />
             ) : filtered.length === 0 ? (
               <EmptyState
-                emoji="📊"
-                title="No expenses yet"
-                description="Split your first cost with your flatmates"
+                emoji="\ud83d\udcca"
+                title={t('expenses.noExpenses')}
+                description={t('expenses.noExpensesDesc')}
                 action={{
-                  label: 'Add Expense',
+                  label: t('expenses.addExpenseButton'),
                   onClick: () => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }),
                 }}
               />
@@ -515,7 +565,7 @@ export default function ExpensesPage() {
                         {e.category}
                       </span>
 {e.isRecurring && (
-                      <Repeat className="w-3 h-3 text-[#1D9E75]" />
+                      <Repeat className="w-3 h-3 text-[#F97316]" />
                     )}
                     </div>
                     <div className="flex items-center gap-4">
@@ -523,7 +573,7 @@ export default function ExpensesPage() {
                         {Number(e.amount).toLocaleString()} UZS
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#1D9E75] flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-8 h-8 rounded-full bg-[#F97316] flex items-center justify-center text-white text-xs font-semibold">
                           {e.paidBy?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                         <div className="text-sm text-[#6b7280] dark:text-gray-400">{e.note || ''}</div>
@@ -544,7 +594,17 @@ export default function ExpensesPage() {
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
+       </div>
+       <ConfirmModal
+         isOpen={confirmState.open}
+         title={t('expenses.confirm')}
+         message={confirmState.message}
+         onConfirm={() => {
+           confirmState.onConfirm();
+           setConfirmState(prev => ({ ...prev, open: false }));
+         }}
+         onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+       />
+     </div>
+   );
 }

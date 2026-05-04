@@ -7,6 +7,7 @@ import { Trash2 } from 'lucide-react';
 import { Spinner } from '../../components/Spinner';
 import { SkeletonList } from '../../components/Skeleton';
 import { EmptyState } from '../../components/EmptyState';
+import ConfirmModal from '../../components/ConfirmModal';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -119,17 +120,24 @@ export default function TasksPage() {
     }
   };
 
+  const [confirmState, setConfirmState] = useState<{ open: boolean; onConfirm: () => void; message: string }>({ open: false, onConfirm: () => {}, message: '' });
+
   const isAdmin = userProfile?.role === 'admin';
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return;
-    try {
-      await deleteDoc(doc(db, 'tasks', id));
-      toast.success('Task deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      toast.error('Something went wrong. Please try again.');
-    }
+    setConfirmState({
+      open: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'tasks', id));
+          toast.success('Task deleted successfully');
+        } catch (error) {
+          console.error('Failed to delete task:', error);
+          toast.error('Something went wrong. Please try again.');
+        }
+      },
+      message: 'Are you sure you want to delete this task? This cannot be undone.'
+    });
   };
 
   return (
@@ -146,7 +154,7 @@ export default function TasksPage() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 maxLength={200}
-                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                 required
               />
               <div className="text-right text-xs text-gray-400 mt-1">{text.length}/200</div>
@@ -158,7 +166,7 @@ export default function TasksPage() {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   required
                 />
               </div>
@@ -167,7 +175,7 @@ export default function TasksPage() {
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   required
                 >
                   <option value="">Select</option>
@@ -242,8 +250,8 @@ export default function TasksPage() {
                       onClick={() => toggleDone(task)}
                       className={`w-5 h-5 flex items-center justify-center rounded-full border-2 transition-all duration-150 flex-shrink-0 ${
                         task.done
-                          ? 'bg-[#1D9E75] border-[#1D9E75]'
-                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-[#1D9E75]'
+                          ? 'bg-[#F97316] border-[#F97316]'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-[#F97316]'
                       }`}
                       aria-label="Toggle done"
                     >
@@ -298,7 +306,17 @@ export default function TasksPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
+       </div>
+       <ConfirmModal
+         isOpen={confirmState.open}
+         title="Confirm"
+         message={confirmState.message}
+         onConfirm={() => {
+           confirmState.onConfirm();
+           setConfirmState(prev => ({ ...prev, open: false }));
+         }}
+         onCancel={() => setConfirmState(prev => ({ ...prev, open: false }))}
+       />
+     </div>
+   );
 }

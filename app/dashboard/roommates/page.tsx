@@ -30,7 +30,7 @@ const COLORS = [
   { name: 'Blue', value: 'blue', class: 'bg-blue-500' },
   { name: 'Amber', value: 'amber', class: 'bg-amber-400' },
   { name: 'Purple', value: 'purple', class: 'bg-purple-500' },
-  { name: 'Teal', value: 'teal', class: 'bg-[#1D9E75]' },
+  { name: 'Teal', value: 'teal', class: 'bg-[#F97316]' },
   { name: 'Rose', value: 'rose', class: 'bg-rose-500' },
 ];
 
@@ -235,7 +235,7 @@ export default function RoommatesPage() {
                   {editingId === u.id ? (
                     <div className="space-y-3 w-full">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-[#1D9E75]">Edit Profile</h3>
+                        <h3 className="text-sm font-semibold text-[#F97316]">Edit Profile</h3>
                         <button
                           onClick={() => setEditingId(null)}
                           className="text-gray-400 hover:text-white transition-colors"
@@ -245,43 +245,43 @@ export default function RoommatesPage() {
                       </div>
                       <div className="space-y-2">
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Name"
                           value={editForm.name || ''}
                           onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                         />
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Surname"
                           value={editForm.surname || ''}
                           onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
                         />
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Occupation"
                           value={editForm.occupation || ''}
                           onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })}
                         />
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Phone"
                           value={editForm.phone || ''}
                           onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                         />
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Telegram"
                           value={editForm.telegram || ''}
                           onChange={(e) => setEditForm({ ...editForm, telegram: e.target.value })}
                         />
                         <input
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           placeholder="Instagram"
                           value={editForm.instagram || ''}
                           onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
                         />
                         <select
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                           value={editForm.color || 'blue'}
                           onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
                         >
@@ -351,7 +351,7 @@ export default function RoommatesPage() {
                         <span
                           className={`text-xs px-3 py-1 rounded-full font-semibold ${
                             u.role === 'admin'
-                              ? 'bg-[#1D9E75] text-white'
+                              ? 'bg-[#F97316] text-white'
                               : 'bg-white/10 text-gray-400'
                           }`}
                         >
@@ -431,7 +431,7 @@ export default function RoommatesPage() {
                       placeholder="Name *"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                       required
                     />
                     <input
@@ -439,14 +439,14 @@ export default function RoommatesPage() {
                       placeholder="Surname"
                       value={surname}
                       onChange={(e) => setSurname(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     />
                     <input
                       type="text"
                       placeholder="Username *"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                       required
                     />
                     <input
@@ -454,7 +454,7 @@ export default function RoommatesPage() {
                       placeholder="Password *"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                       required
                     />
                     <input
@@ -462,33 +462,33 @@ export default function RoommatesPage() {
                       placeholder="Occupation"
                       value={occupation}
                       onChange={(e) => setOccupation(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     />
                     <input
                       type="text"
                       placeholder="Phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     />
                     <input
                       type="text"
                       placeholder="Telegram"
                       value={telegram}
                       onChange={(e) => setTelegram(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     />
                     <input
                       type="text"
                       placeholder="Instagram"
                       value={instagram}
                       onChange={(e) => setInstagram(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     />
                     <select
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                       required
                     >
                       {COLORS.map((c) => (

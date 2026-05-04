@@ -24,8 +24,8 @@ export function EmptyState({ icon, emoji, title, description, action }: EmptySta
       className="flex flex-col items-center justify-center py-16 px-6 text-center"
     >
       {icon ? (
-        <div className="w-16 h-16 rounded-2xl bg-[#1D9E75]/10 flex items-center justify-center mb-5">
-          <div className="text-[#1D9E75] opacity-70">{icon}</div>
+        <div className="w-16 h-16 rounded-2xl bg-[#F97316]/10 flex items-center justify-center mb-5">
+          <div className="text-[#F97316] opacity-70">{icon}</div>
         </div>
       ) : emoji ? (
         <div className="text-5xl mb-5" aria-hidden="true">
@@ -42,14 +42,14 @@ export function EmptyState({ icon, emoji, title, description, action }: EmptySta
         action.href ? (
           <Link
             href={action.href}
-            className="inline-flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#188a65] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 bg-[#F97316] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#188a65] transition-colors cursor-pointer"
           >
             {action.label}
           </Link>
         ) : (
           <button
             onClick={action.onClick}
-            className="inline-flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#188a65] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 bg-[#F97316] text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-[#188a65] transition-colors cursor-pointer"
           >
             {action.label}
           </button>

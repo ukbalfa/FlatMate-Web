@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useI18n } from '../../../context/I18nContext';
 import {
   User,
   Lock,
@@ -41,21 +42,22 @@ interface UserProfile {
 }
 
 const COLORS = [
-  { name: 'Blue', value: 'blue', class: 'bg-blue-500' },
-  { name: 'Amber', value: 'amber', class: 'bg-amber-400' },
-  { name: 'Purple', value: 'purple', class: 'bg-purple-500' },
-  { name: 'Teal', value: 'teal', class: 'bg-[#1D9E75]' },
-  { name: 'Rose', value: 'rose', class: 'bg-rose-500' },
+  { name: 'settings.color.blue', value: 'blue', class: 'bg-blue-500' },
+  { name: 'settings.color.amber', value: 'amber', class: 'bg-amber-400' },
+  { name: 'settings.color.purple', value: 'purple', class: 'bg-purple-500' },
+  { name: 'settings.color.teal', value: 'teal', class: 'bg-[#F97316]' },
+  { name: 'settings.color.rose', value: 'rose', class: 'bg-rose-500' },
 ];
 
 const NOTIFICATION_PREFS = [
-  { key: 'taskReminders', label: 'Task Reminders', description: 'Get notified when tasks are due' },
-  { key: 'expenseAlerts', label: 'New Expenses', description: 'Alert when someone adds an expense' },
-  { key: 'cleaningReminders', label: 'Cleaning Schedule', description: 'Reminders for your cleaning days' },
-  { key: 'weeklySummary', label: 'Weekly Summary', description: 'Weekly digest of expenses and tasks' },
+  { key: 'taskReminders', label: 'settings.notifications.taskReminders', description: 'settings.notifications.taskRemindersDesc' },
+  { key: 'expenseAlerts', label: 'settings.notifications.newExpenses', description: 'settings.notifications.newExpensesDesc' },
+  { key: 'cleaningReminders', label: 'settings.notifications.cleaningSchedule', description: 'settings.notifications.cleaningScheduleDesc' },
+  { key: 'weeklySummary', label: 'settings.notifications.weeklySummary', description: 'settings.notifications.weeklySummaryDesc' },
 ];
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const { userProfile: contextProfile, user: firebaseUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -102,17 +104,17 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
-      toast.error('Failed to load profile');
+      toast.error(t('settings.toast.profileLoadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [contextProfile?.uid]);
+  }, [contextProfile?.uid, t]);
 
   useEffect(() => {
     if (contextProfile?.uid) {
       loadUserProfile();
     }
-  }, [contextProfile?.uid, loadUserProfile]);
+  }, [contextProfile?.uid, t, loadUserProfile]);
 
   const saveProfile = async () => {
     if (!contextProfile?.uid) return;
@@ -122,11 +124,11 @@ export default function SettingsPage() {
         ...editForm,
         updatedAt: new Date().toISOString(),
       });
-      toast.success('Profile updated successfully');
+      toast.success(t('settings.toast.profileUpdated'));
       loadUserProfile();
     } catch (error) {
       console.error('Failed to update profile:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('settings.toast.somethingWrong'));
     } finally {
       setSaving(false);
     }
@@ -135,15 +137,15 @@ export default function SettingsPage() {
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firebaseUser?.email) {
-      toast.error('User not authenticated');
+      toast.error(t('settings.toast.notAuthenticated'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
+      toast.error(t('settings.toast.passwordsNoMatch'));
       return;
     }
     if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error(t('settings.toast.passwordTooShort'));
       return;
     }
 
@@ -151,13 +153,13 @@ export default function SettingsPage() {
       const credential = EmailAuthProvider.credential(firebaseUser.email, currentPassword);
       await reauthenticateWithCredential(firebaseUser, credential);
       await updatePassword(firebaseUser, newPassword);
-      toast.success('Password changed successfully');
+      toast.success(t('settings.toast.passwordChanged'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
       console.error('Failed to change password:', error);
-      toast.error('Failed to change password. Please try again.');
+      toast.error(t('settings.toast.passwordChangeFailed'));
     }
   };
 
@@ -165,10 +167,10 @@ export default function SettingsPage() {
     if (!firebaseUser) return;
     try {
       await sendEmailVerification(firebaseUser);
-      toast.success('Verification email sent');
+      toast.success(t('settings.toast.verificationSent'));
     } catch (error) {
       console.error('Failed to send verification:', error);
-      toast.error('Failed to send verification email. Please try again.');
+      toast.error(t('settings.toast.verificationFailed'));
     }
   };
 
@@ -179,10 +181,10 @@ export default function SettingsPage() {
         notifications,
         updatedAt: new Date().toISOString(),
       });
-      toast.success('Notification preferences saved');
+      toast.success(t('settings.toast.notificationsSaved'));
     } catch (error) {
       console.error('Failed to save notifications:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('settings.toast.somethingWrong'));
     }
   };
 
@@ -208,23 +210,23 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
-          <p className="text-gray-400 mt-1">Manage your profile, security, and preferences</p>
+          <h1 className="text-2xl font-bold text-white">{t('settings.page.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('settings.page.subtitle')}</p>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-white/10 pb-1">
           {[
-            { id: 'profile', label: 'Profile', icon: User },
-            { id: 'security', label: 'Security', icon: Lock },
-            { id: 'notifications', label: 'Notifications', icon: Bell },
+            { id: 'profile', label: t('settings.tab.profile'), icon: User },
+            { id: 'security', label: t('settings.tab.security'), icon: Lock },
+            { id: 'notifications', label: t('settings.tab.notifications'), icon: Bell },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id as typeof activeTab)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                 activeTab === id
-                  ? 'text-white border-b-2 border-[#1D9E75] bg-white/5'
+                  ? 'text-white border-b-2 border-[#F97316] bg-white/5'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -259,78 +261,78 @@ export default function SettingsPage() {
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mt-2 ${
                     profile?.role === 'admin'
-                      ? 'bg-[#1D9E75]/20 text-[#1D9E75]'
+                      ? 'bg-[#F97316]/20 text-[#F97316]'
                       : 'bg-white/10 text-gray-400'
                   }`}
                 >
                   {profile?.role === 'admin' && <CheckCircle className="w-3 h-3" />}
-                  {profile?.role || 'roommate'}
+                  {profile?.role || t('settings.role.roommate')}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Name</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.name')}</label>
                 <input
                   type="text"
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Surname</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.surname')}</label>
                 <input
                   type="text"
                   value={editForm.surname || ''}
                   onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Occupation</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.occupation')}</label>
                 <input
                   type="text"
                   value={editForm.occupation || ''}
                   onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Phone</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.phone')}</label>
                 <input
                   type="tel"
                   value={editForm.phone || ''}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Telegram</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.telegram')}</label>
                 <input
                   type="text"
                   value={editForm.telegram || ''}
                   onChange={(e) => setEditForm({ ...editForm, telegram: e.target.value })}
-                  placeholder="@username"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  placeholder={t('settings.profile.usernamePlaceholder')}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Instagram</label>
+                <label className="block text-sm text-gray-400 mb-2">{t('settings.profile.instagram')}</label>
                 <input
                   type="text"
                   value={editForm.instagram || ''}
                   onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
-                  placeholder="@username"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                  placeholder={t('settings.profile.usernamePlaceholder')}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Color Selection */}
             <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-3">Profile Color</label>
+              <label className="block text-sm text-gray-400 mb-3">{t('settings.profile.color')}</label>
               <div className="flex gap-3">
                 {COLORS.map((c) => (
                   <button
@@ -341,7 +343,7 @@ export default function SettingsPage() {
                         ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1d27] scale-110'
                         : 'hover:scale-105 opacity-70 hover:opacity-100'
                     }`}
-                    title={c.name}
+                    title={t(c.name)}
                   />
                 ))}
               </div>
@@ -350,11 +352,11 @@ export default function SettingsPage() {
             <button
               onClick={saveProfile}
               disabled={saving}
-              className="flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 bg-[#F97316] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors disabled:opacity-50"
             >
               {saving && <Spinner />}
               <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? t('settings.profile.saving') : t('settings.profile.saveChanges')}
             </button>
           </motion.div>
         )}
@@ -369,16 +371,16 @@ export default function SettingsPage() {
             {/* Email Verification */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
-                <Mail className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">Email Verification</h3>
+                <Mail className="w-5 h-5 text-[#F97316]" />
+                <h3 className="text-lg font-semibold text-white">{t('settings.security.emailVerification')}</h3>
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-300">{firebaseUser?.email}</p>
                   <p className="text-sm text-gray-500 mt-1">
                     {firebaseUser?.emailVerified
-                      ? 'Your email is verified'
-                      : 'Your email is not verified'}
+                      ? t('settings.security.emailVerified')
+                      : t('settings.security.emailNotVerified')}
                   </p>
                 </div>
                 {!firebaseUser?.emailVerified && (
@@ -386,13 +388,13 @@ export default function SettingsPage() {
                     onClick={sendVerificationEmail}
                     className="bg-white/10 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-white/15 transition"
                   >
-                    Verify Email
+                    {t('settings.security.verifyEmail')}
                   </button>
                 )}
                 {firebaseUser?.emailVerified && (
-                  <span className="flex items-center gap-1 text-[#1D9E75] text-sm">
+                  <span className="flex items-center gap-1 text-[#F97316] text-sm">
                     <CheckCircle className="w-4 h-4" />
-                    Verified
+                    {t('settings.security.verified')}
                   </span>
                 )}
               </div>
@@ -401,19 +403,19 @@ export default function SettingsPage() {
             {/* Change Password */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-4">
-                <Lock className="w-5 h-5 text-[#1D9E75]" />
-                <h3 className="text-lg font-semibold text-white">Change Password</h3>
+                <Lock className="w-5 h-5 text-[#F97316]" />
+                <h3 className="text-lg font-semibold text-white">{t('settings.security.changePassword')}</h3>
               </div>
               <form onSubmit={changePassword} className="space-y-4 max-w-md">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Current Password</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('settings.security.currentPassword')}</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       required
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all pr-10"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all pr-10"
                     />
                     <button
                       type="button"
@@ -425,31 +427,31 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">New Password</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('settings.security.newPassword')}</label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Confirm New Password</label>
+                  <label className="block text-sm text-gray-400 mb-2">{t('settings.security.confirmNewPassword')}</label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none transition-all"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="bg-[#1D9E75] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors"
+                  className="bg-[#F97316] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors"
                 >
-                  Change Password
+                  {t('settings.security.changePasswordButton')}
                 </button>
               </form>
             </div>
@@ -464,8 +466,8 @@ export default function SettingsPage() {
             className="bg-[#1a1d27] border border-white/5 rounded-xl p-6"
           >
             <div className="flex items-center gap-3 mb-6">
-              <Bell className="w-5 h-5 text-[#1D9E75]" />
-              <h3 className="text-lg font-semibold text-white">Notification Preferences</h3>
+              <Bell className="w-5 h-5 text-[#F97316]" />
+              <h3 className="text-lg font-semibold text-white">{t('settings.notifications.title')}</h3>
             </div>
             <div className="space-y-4">
               {NOTIFICATION_PREFS.map(({ key, label, description }) => (
@@ -474,15 +476,15 @@ export default function SettingsPage() {
                   className="flex items-center justify-between py-3 border-b border-white/5 last:border-0"
                 >
                   <div>
-                    <p className="text-white font-medium">{label}</p>
-                    <p className="text-sm text-gray-500">{description}</p>
+                    <p className="text-white font-medium">{t(label)}</p>
+                    <p className="text-sm text-gray-500">{t(description)}</p>
                   </div>
                   <button
                     onClick={() =>
                       setNotifications({ ...notifications, [key]: !notifications[key] })
                     }
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifications[key] ? 'bg-[#1D9E75]' : 'bg-gray-600'
+                      notifications[key] ? 'bg-[#F97316]' : 'bg-gray-600'
                     }`}
                   >
                     <span
@@ -496,10 +498,10 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={saveNotifications}
-              className="mt-6 flex items-center gap-2 bg-[#1D9E75] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors"
+              className="mt-6 flex items-center gap-2 bg-[#F97316] text-white rounded-lg px-6 py-2.5 font-medium hover:bg-[#188a65] transition-colors"
             >
               <Save className="w-4 h-4" />
-              Save Preferences
+              {t('settings.notifications.savePreferences')}
             </button>
           </motion.div>
         )}

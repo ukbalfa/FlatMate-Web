@@ -89,15 +89,15 @@ export default function LoginPage() {
           className="text-left max-w-md"
         >
           <div className="flex items-center gap-2 mb-2">
-            <span className="w-3 h-3 rounded-full bg-[#1D9E75]"></span>
+            <span className="w-3 h-3 rounded-full bg-[#F97316]"></span>
             <h1 className="text-2xl font-bold text-[#0a0a0a] dark:text-gray-100">FlatMate</h1>
           </div>
           <p className="text-lg text-[#6b7280] dark:text-gray-400 mb-8">Manage your apartment together.</p>
           <div className="space-y-3">
             {bullets.map((b) => (
               <div key={b} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-[#1D9E75]/10 dark:bg-[#1D9E75]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Check className="w-3 h-3 text-[#1D9E75]" />
+                <div className="w-5 h-5 rounded-full bg-[#F97316]/10 dark:bg-[#F97316]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Check className="w-3 h-3 text-[#F97316]" />
                 </div>
                 <span className="text-sm text-[#6b7280] dark:text-gray-400">{b}</span>
               </div>
@@ -117,7 +117,7 @@ export default function LoginPage() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
-            <span className="w-3 h-3 rounded-full bg-[#1D9E75]"></span>
+            <span className="w-3 h-3 rounded-full bg-[#F97316]"></span>
             <span className="text-2xl font-bold text-[#0a0a0a] dark:text-gray-100">FlatMate</span>
           </div>
 
@@ -133,7 +133,7 @@ export default function LoginPage() {
                     placeholder="e.g., admin@flatmate.com"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-3 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-3 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     required
                   />
                 </div>
@@ -146,7 +146,7 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-3 pr-12 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#1D9E75] focus:border-transparent outline-none"
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-3 pr-12 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                     required
                   />
                   <button
