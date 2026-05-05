@@ -139,7 +139,7 @@ export default function LandingPage() {
                 onMouseEnter={(e) => e.currentTarget.style.color = '#F97316'}
                 onMouseLeave={(e) => e.currentTarget.style.color = '#9A7C4A'}
               >
-                Features
+                {t('landing.nav.features')}
               </button>
               <Link
                 href="/login"

@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../context/I18nContext';
 import Link from 'next/link';
 import { SkeletonCard } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
@@ -85,6 +86,7 @@ function getMonday(d: Date) {
 
 export default function DashboardPage() {
   const { userProfile } = useAuth();
+  const { t } = useI18n();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
@@ -234,33 +236,33 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      title: 'This Month',
+      title: t('dashboard.thisMonth'),
       value: totalMonthExpenses.toLocaleString() + ' UZS',
-      subtitle: 'Total expenses',
+      subtitle: t('dashboard.totalExpenses'),
       icon: Wallet,
       color: 'bg-[#F97316]',
-      trend: myMonthExpenses > 0 ? 'You paid ' + myMonthExpenses.toLocaleString() : null,
+      trend: myMonthExpenses > 0 ? t('dashboard.youPaid') + ' ' + myMonthExpenses.toLocaleString() : null,
     },
     {
-      title: 'My Tasks',
+      title: t('dashboard.myTasks'),
       value: myTasks.length.toString(),
-      subtitle: `${overdueTasks.length} overdue`,
+      subtitle: `${overdueTasks.length} ${t('dashboard.overdue')}`,
       icon: CheckSquare,
       color: overdueTasks.length > 0 ? 'bg-red-500' : 'bg-blue-500',
       alert: overdueTasks.length > 0,
     },
     {
-      title: 'Cleaning',
+      title: t('dashboard.cleaning'),
       value: myCleaning.length.toString(),
-      subtitle: todaysCleaning.length > 0 ? `${todaysCleaning.length} today` : 'This week',
+      subtitle: todaysCleaning.length > 0 ? `${todaysCleaning.length} ${t('dashboard.today')}` : t('dashboard.thisWeek'),
       icon: Sparkles,
       color: todaysCleaning.length > 0 ? 'bg-amber-500' : 'bg-purple-500',
       alert: todaysCleaning.length > 0,
     },
     {
-      title: 'Roommates',
+      title: t('dashboard.roommates'),
       value: users.length.toString(),
-      subtitle: 'Active members',
+      subtitle: t('dashboard.activeMembers'),
       icon: Users,
       color: 'bg-teal-500',
     },
@@ -276,10 +278,10 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-bold text-white"
           >
-            Welcome back, {userProfile?.name || userProfile?.username}!
+            {t('dashboard.welcome')}, {userProfile?.name || userProfile?.username}!
           </motion.h1>
           <p className="text-gray-400 mt-2">
-            Here&apos;s what&apos;s happening with your flat this month
+            {t('dashboard.monthlyOverview')}
           </p>
         </div>
 
@@ -346,29 +348,29 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Quick Actions */}
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">{t('dashboard.quickActions')}</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   {
-                    label: 'Add Expense',
+                    label: t('dashboard.addExpense'),
                     href: '/dashboard/expenses',
                     icon: Receipt,
                     color: 'bg-[#F97316]',
                   },
                   {
-                    label: 'Add Task',
+                    label: t('dashboard.addTask'),
                     href: '/dashboard/tasks',
                     icon: CheckSquare,
                     color: 'bg-blue-500',
                   },
                   {
-                    label: 'View Balances',
+                    label: t('dashboard.viewBalances'),
                     href: '/dashboard/balances',
                     icon: Wallet,
                     color: 'bg-amber-500',
                   },
                   {
-                    label: 'Exchange Rates',
+                    label: t('dashboard.exchangeRates'),
                     href: '/dashboard/rates',
                     icon: TrendingUp,
                     color: 'bg-purple-500',
@@ -395,13 +397,13 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-[#F97316]" />
-                  Recent Activity
+                  {t('dashboard.recentActivity')}
                 </h2>
                 <Link
                   href="/dashboard/expenses"
                   className="text-sm text-[#F97316] hover:text-[#188a65] flex items-center gap-1"
                 >
-                  View all <ArrowRight className="w-4 h-4" />
+                  {t('dashboard.viewAll')} <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
 
@@ -414,8 +416,8 @@ export default function DashboardPage() {
               ) : activities.length === 0 ? (
                 <EmptyState
                   emoji="🔔"
-                  title="No recent activity"
-                  description="Activity from expenses, tasks, and settlements will appear here"
+                  title={t('dashboard.noActivity')}
+                  description={t('dashboard.noActivityDesc')}
                 />
               ) : (
                 <div className="space-y-3">
@@ -472,18 +474,18 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Clock className="w-5 h-5 text-blue-500" />
-                  My Tasks
+                  {t('dashboard.myTasks')}
                 </h2>
                 <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-medium">
-                  {myTasks.length} pending
+                  {myTasks.length} {t('dashboard.pending')}
                 </span>
               </div>
 
               {myTasks.length === 0 ? (
                 <EmptyState
                   icon={<CheckSquare className="w-8 h-8" />}
-                  title="All caught up!"
-                  description="You have no pending tasks right now. Enjoy the peace."
+                  title={t('dashboard.allCaughtUp')}
+                  description={t('dashboard.noPendingTasks')}
                 />
               ) : (
                 <div className="space-y-3">
@@ -515,10 +517,10 @@ export default function DashboardPage() {
                             }`}
                           >
                             {isOverdue
-                              ? `${Math.abs(daysUntil)} days overdue`
+                              ? `${Math.abs(daysUntil)} ${t('dashboard.overdue')}`
                               : isToday
-                              ? 'Due today'
-                              : `${daysUntil} days left`}
+                              ? t('dashboard.today')
+                              : `${daysUntil} ${t('dashboard.days')}`}
                           </span>
                           <span className="text-xs text-gray-500">
                             {task.dueDate}
@@ -532,7 +534,7 @@ export default function DashboardPage() {
                       href="/dashboard/tasks"
                       className="block text-center text-sm text-[#F97316] hover:text-[#188a65] py-2"
                     >
-                      View {myTasks.length - 5} more tasks →
+                      {t('dashboard.viewMore')} {myTasks.length - 5} {t('dashboard.more')} {t('dashboard.tasks')} →
                     </Link>
                   )}
                 </div>
@@ -544,18 +546,18 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-amber-500" />
-                  My Cleaning
+                  {t('dashboard.cleaning')}
                 </h2>
                 <span className="px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
-                  {myCleaning.length} tasks
+                  {myCleaning.length} {t('dashboard.tasks')}
                 </span>
               </div>
 
               {myCleaning.length === 0 ? (
                 <EmptyState
                   icon={<Sparkles className="w-8 h-8" />}
-                  title="No cleaning tasks"
-                  description="You have no cleaning duties this week. Enjoy!"
+                  title={t('dashboard.noCleaning')}
+                  description={t('dashboard.noCleaningDesc')}
                 />
               ) : (
                 <div className="space-y-3">
@@ -574,14 +576,14 @@ export default function DashboardPage() {
                               : 'bg-white/10 text-gray-400'
                           }`}
                         >
-                          {task.dayOfWeek === today ? 'Today' : task.dayOfWeek}
+                          {task.dayOfWeek === today ? t('dashboard.today') : t('cleaning.day.' + task.dayOfWeek)}
                         </span>
                         <span
                           className={`text-xs ${
                             task.done ? 'text-green-400' : 'text-gray-500'
                           }`}
                         >
-                          {task.done ? 'Done' : 'Pending'}
+                          {task.done ? t('common.done') : t('dashboard.pending')}
                         </span>
                       </div>
                     </Link>
@@ -594,12 +596,12 @@ export default function DashboardPage() {
             <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-purple-500" />
-                Monthly Overview
+                {t('dashboard.monthlyOverview')}
               </h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-400">Your contribution</span>
+                    <span className="text-gray-400">{t('dashboard.yourContribution')}</span>
                     <span className="text-white">
                       {((myMonthExpenses / (totalMonthExpenses || 1)) * 100).toFixed(
                         0

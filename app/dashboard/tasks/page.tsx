@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/EmptyState';
 import ConfirmModal from '../../components/ConfirmModal';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useI18n } from '../../../context/I18nContext';
 
 interface User {
   id?: string;
@@ -35,18 +36,20 @@ interface Task {
   createdBy: string;
 }
 
-function getBadgeLabel(dueDate: string) {
-  const today = new Date();
-  const due = new Date(dueDate);
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
-  if (due > today) return 'Upcoming';
-  if (due.getTime() === today.getTime()) return 'Today';
-  return 'Overdue';
-}
-
 export default function TasksPage() {
   const { userProfile } = useAuth();
+  const { t } = useI18n();
+
+  const getBadgeLabel = (dueDate: string) => {
+    const today = new Date();
+    const due = new Date(dueDate);
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    if (due > today) return t('tasks.status.upcoming');
+    if (due.getTime() === today.getTime()) return t('tasks.status.today');
+    return t('tasks.status.overdue');
+  };
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [text, setText] = useState('');
@@ -61,7 +64,7 @@ export default function TasksPage() {
       setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
     } catch (error) {
       console.error('Failed to load users:', error);
-      toast.error('Failed to load users');
+      toast.error(t('tasks.toast.loadUsersFailed'));
     }
   };
 
@@ -76,7 +79,7 @@ export default function TasksPage() {
       },
       (error) => {
         console.error('Failed to load tasks:', error);
-        toast.error('Failed to load tasks');
+        toast.error(t('tasks.toast.loadTasksFailed'));
         setLoading(false);
       }
     );
@@ -101,10 +104,10 @@ export default function TasksPage() {
       setText('');
       setDueDate('');
       setAssignedTo('');
-      toast.success('Task added successfully');
+      toast.success(t('tasks.toast.added'));
     } catch (error) {
       console.error('Failed to add task:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('tasks.toast.addFailed'));
     } finally {
       setAdding(false);
     }
@@ -113,10 +116,10 @@ export default function TasksPage() {
   const toggleDone = async (task: Task) => {
     try {
       await updateDoc(doc(db, 'tasks', task.id), { done: !task.done });
-      toast.success(task.done ? 'Task reopened' : 'Task marked complete! 🎉');
+      toast.success(task.done ? t('tasks.toast.reopened') : t('tasks.toast.completed'));
     } catch (error) {
       console.error('Failed to update task:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('tasks.toast.addFailed'));
     }
   };
 
@@ -130,13 +133,13 @@ export default function TasksPage() {
       onConfirm: async () => {
         try {
           await deleteDoc(doc(db, 'tasks', id));
-          toast.success('Task deleted successfully');
+          toast.success(t('tasks.toast.deleted'));
         } catch (error) {
           console.error('Failed to delete task:', error);
-          toast.error('Something went wrong. Please try again.');
+          toast.error(t('tasks.toast.deleteFailed'));
         }
       },
-      message: 'Are you sure you want to delete this task? This cannot be undone.'
+      message: t('tasks.deleteConfirm')
     });
   };
 
@@ -145,10 +148,10 @@ export default function TasksPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Add Task Form */}
         <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">New task</h3>
+          <h3 className="text-lg font-semibold mb-4 text-[#0a0a0a] dark:text-gray-100">{t('tasks.newTask')}</h3>
           <form onSubmit={handleAdd} className="space-y-4">
             <div>
-              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Task</label>
+              <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('tasks.task')}</label>
               <input
                 type="text"
                 value={text}
@@ -161,7 +164,7 @@ export default function TasksPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Due date</label>
+                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('tasks.dueDate')}</label>
                 <input
                   type="date"
                   value={dueDate}
@@ -171,14 +174,14 @@ export default function TasksPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">Assign to</label>
+                <label className="block text-sm text-[#6b7280] dark:text-gray-400 mb-2">{t('tasks.assignTo')}</label>
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
                   className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 text-[#0a0a0a] dark:text-gray-100 focus:ring-2 focus:ring-[#F97316] focus:border-transparent outline-none"
                   required
                 >
-                  <option value="">Select</option>
+                  <option value="">{t('tasks.select')}</option>
                   {users.map((u) => (
                     <option key={u.username} value={u.username}>
                       {u.name || u.username}
@@ -193,7 +196,7 @@ export default function TasksPage() {
               className="w-full bg-[#0a0a0a] dark:bg-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-600 transition disabled:opacity-60 inline-flex items-center justify-center gap-2"
             >
               {adding && <Spinner />}
-              Add Task
+              {t('tasks.addTaskButton')}
             </button>
           </form>
         </div>
@@ -201,7 +204,7 @@ export default function TasksPage() {
         {/* Task List */}
         <div className="bg-white dark:bg-gray-800 border border-[#e5e7eb] dark:border-gray-700 rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-semibold text-[#0a0a0a] dark:text-gray-100">Tasks</h3>
+            <h3 className="text-lg font-semibold text-[#0a0a0a] dark:text-gray-100">{t('tasks.title')}</h3>
             <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-[#6b7280] dark:text-gray-300 text-xs font-medium">
               {tasks.length}
             </span>
@@ -212,10 +215,10 @@ export default function TasksPage() {
           ) : tasks.length === 0 ? (
             <EmptyState
               emoji="✅"
-              title="All clear!"
-              description="No tasks right now. Enjoy the peace."
+              title={t('tasks.allClear')}
+              description={t('tasks.noTasks')}
               action={{
-                label: 'Add Task',
+                label: t('tasks.addTaskButton'),
                 onClick: () => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }),
               }}
             />

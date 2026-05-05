@@ -51,7 +51,8 @@ const pageNames: Record<string, string> = {
   "/dashboard/announcements": "nav.announcements",
 };
 
-const _COLOR_MAP: Record<string, string> = {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const COLOR_MAP: Record<string, string> = {
   blue:   '#3b82f6',
   amber:  '#FBBF24',
   purple: '#a855f7',
